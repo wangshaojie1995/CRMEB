@@ -1,10 +1,18 @@
 <?php
-
-
+// +----------------------------------------------------------------------
+// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
+// +----------------------------------------------------------------------
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
+// +----------------------------------------------------------------------
+// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
+// +----------------------------------------------------------------------
+// | Author: CRMEB Team <admin@crmeb.com>
+// +----------------------------------------------------------------------
 namespace app\listener\order;
 
 
 use app\jobs\AgentJob;
+use app\jobs\notice\PrintJob;
 use app\jobs\OrderInvoiceJob;
 use app\jobs\OrderJob;
 use app\jobs\ProductLogJob;
@@ -66,7 +74,7 @@ class OrderPaySuccessListener implements ListenerInterface
         }
 
         //虚拟商品自动发货
-        if ($orderInfo['virtual_type'] > 0 && $orderInfo['combination_id'] == 0) {
+        if (in_array($orderInfo['virtual_type'], [1, 2]) && $orderInfo['combination_id'] == 0) {
             /** @var StoreOrderDeliveryServices $orderDeliveryServices */
             $orderDeliveryServices = app()->make(StoreOrderDeliveryServices::class);
             $orderDeliveryServices->virtualSend($orderInfo);
@@ -83,6 +91,9 @@ class OrderPaySuccessListener implements ListenerInterface
             $orderInfo['phone'] = $userInfo['phone'];
             $capitalFlowServices->setFlow($orderInfo, 'order');
         }
+
+        //小票打印
+        PrintJob::dispatch([$orderInfo['id'], 1]);
 
         //支付成功后发送消息
         OrderJob::dispatch([$orderInfo]);

@@ -153,7 +153,7 @@ export default {
           ];
         })
         .catch((res) => {
-          this.$message.error(res.msg);
+          this.$message.error(res);
         });
     },
     // 统计图
@@ -251,7 +251,7 @@ export default {
           this.spinShow = false;
         })
         .catch((res) => {
-          this.$message.error(res.msg);
+          this.$message.error(res);
           this.spinShow = false;
         });
     },

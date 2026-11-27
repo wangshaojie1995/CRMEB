@@ -1,8 +1,5 @@
 <template>
 	<view class='productSort copy-data' :style="{height:pageHeight}">
-		<!-- #ifdef APP-PLUS || MP -->
-		<!-- <view class="sys-head" :style="{height:sysHeight}"></view> -->
-		<!-- #endif -->
 		<view class='header acea-row row-center-wrapper'>
 			<view class='acea-row row-between-wrapper input'>
 				<text class='iconfont icon-sousuo'></text>
@@ -39,9 +36,7 @@
 									:url='"/pages/goods/goods_list/index?cid="+item.id+"&title="+item.cate_name'
 									class='item acea-row row-column row-middle'>
 									<view class='picture'>
-										<easy-loadimage mode="widthFix" :image-src="item.pic || defimg">
-										</easy-loadimage>
-										<!-- <image src="/static/images/sort-img.png" v-else></image> -->
+										<image :src="item.pic || defimg" mode="aspectFill" lazy-load></image>
 									</view>
 									<view class='name line1'>{{$t(`全部商品`)}}</view>
 								</navigator>
@@ -50,8 +45,7 @@
 										:url='"/pages/goods/goods_list/index?sid="+itemn.id+"&title="+itemn.cate_name'
 										class='item acea-row row-column row-middle'>
 										<view class='picture'>
-											<easy-loadimage mode="widthFix" :image-src="itemn.pic"></easy-loadimage>
-											<!-- <image src="/static/images/sort-img.png" v-else></image> -->
+											<image :src="itemn.pic" mode="aspectFill" lazy-load></image>
 										</view>
 										<view class='name line1'>{{$t(itemn.cate_name)}}</view>
 									</navigator>
@@ -63,13 +57,11 @@
 				</scroll-view>
 			</view>
 		</view>
-		<tabBar v-if="!is_diy" :pagePath="'/pages/goods_cate/goods_cate'"></tabBar>
-		<pageFooter v-else></pageFooter>
 	</view>
 </template>
 
 <script>
-	let sysHeight = uni.getSystemInfoSync().statusBarHeight + 'px';
+	let sysHeight = uni.getWindowInfo().statusBarHeight + 'px';
 	import {
 		getCategoryList
 	} from '@/api/store.js';
@@ -81,12 +73,10 @@
 		getNavigation
 	} from '@/api/public.js'
 	import pageFooter from '@/components/pageFooter/index.vue'
-	import tabBar from "@/pages/index/visualization/components/tabBar.vue";
 	const app = getApp();
 	export default {
 		components: {
-			pageFooter,
-			tabBar
+			pageFooter
 		},
 		data() {
 			return {
@@ -117,6 +107,7 @@
 				cartNum: state => state.indexData.cartNum
 			})
 		},
+
 		mounted() {
 			let that = this
 			// #ifdef H5
@@ -204,8 +195,10 @@
 				}
 			},
 			scroll: function(e) {
+				console.log(e)
 				let scrollTop = e.detail.scrollTop;
 				let scrollArr = this.hightArr;
+				uni.$emit('scroll');
 				if (this.lock) {
 					this.$set(this, 'lock', false);
 					return;
@@ -220,7 +213,6 @@
 						this.navActive = scrollArr.length - 1
 					}
 				}
-				uni.$emit('scroll');
 			},
 			searchSubmitValue: function(e) {
 				if (this.$util.trim(e.detail.value).length > 0)
@@ -236,7 +228,7 @@
 	}
 </script>
 <style scoped lang="scss">
-	/deep/uni-scroll-view {
+	::v-deep uni-scroll-view {
 		padding-bottom: 0 !important;
 	}
 
@@ -384,18 +376,18 @@
 		border-radius: 50%;
 	}
 
-	// .productSort .conter .list .item .picture image {
-	// 	width: 100%;
-	// 	height: 100%;
-	// 	border-radius: 50%;
-	// }
+	.productSort .conter .list .item .picture image {
+		width: 100%;
+		height: 100%;
+		border-radius: 50%;
+	}
 
 	.productSort .conter .list .item .picture {
 
-		/deep/,
-		/deep/image,
-		/deep/.easy-loadimage,
-		/deep/uni-image {
+		::v-deep,
+		::v-deep image,
+		::v-deep .easy-loadimage,
+		::v-deep uni-image {
 
 			width: 120rpx;
 			height: 120rpx;

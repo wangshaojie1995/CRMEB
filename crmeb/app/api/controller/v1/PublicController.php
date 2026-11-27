@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -12,14 +12,22 @@ namespace app\api\controller\v1;
 
 
 use app\services\activity\combination\StorePinkServices;
+use app\services\activity\coupon\StoreCouponIssueServices;
+use app\services\activity\lottery\LuckLotteryRecordServices;
+use app\services\article\ArticleServices;
 use app\services\diy\DiyServices;
+use app\services\diy\ThemeServices;
 use app\services\kefu\service\StoreServiceServices;
+use app\services\message\MessageSystemServices;
 use app\services\order\DeliveryServiceServices;
+use app\services\order\StoreCartServices;
 use app\services\order\StoreOrderCartInfoServices;
+use app\services\order\StoreOrderRefundServices;
 use app\services\order\StoreOrderServices;
 use app\services\other\AgreementServices;
 use app\services\other\CacheServices;
 use app\services\product\product\StoreCategoryServices;
+use app\services\product\product\StoreProductRelationServices;
 use app\services\product\product\StoreProductServices;
 use app\services\shipping\ExpressServices;
 use app\services\shipping\SystemCityServices;
@@ -33,6 +41,7 @@ use app\services\system\lang\LangTypeServices;
 use app\services\system\store\SystemStoreServices;
 use app\services\system\store\SystemStoreStaffServices;
 use app\services\user\UserBillServices;
+use app\services\user\UserExtractServices;
 use app\services\user\UserInvoiceServices;
 use app\services\user\UserServices;
 use app\services\wechat\RoutineSchemeServices;
@@ -40,6 +49,7 @@ use app\services\wechat\WechatUserServices;
 use app\Request;
 use crmeb\services\CacheService;
 use app\services\other\UploadService;
+use crmeb\services\pay\Pay;
 use crmeb\services\workerman\ChannelService;
 
 /**
@@ -56,18 +66,18 @@ class PublicController
      */
     public function index(Request $request)
     {
-        $banner = sys_data('routine_home_banner') ?: [];//TODO 首页banner图
-        $menus = sys_data('routine_home_menus') ?: [];//TODO 首页按钮
-        $roll = sys_data('routine_home_roll_news') ?: [];//TODO 首页滚动新闻
-        $activity = sys_data('routine_home_activity', 3) ?: [];//TODO 首页活动区域图片
-        $explosive_money = sys_data('index_categy_images') ?: [];//TODO 首页超值爆款
+        $banner = sys_data('routine_home_banner') ?: []; //TODO 首页banner图
+        $menus = sys_data('routine_home_menus') ?: []; //TODO 首页按钮
+        $roll = sys_data('routine_home_roll_news') ?: []; //TODO 首页滚动新闻
+        $activity = sys_data('routine_home_activity', 3) ?: []; //TODO 首页活动区域图片
+        $explosive_money = sys_data('index_categy_images') ?: []; //TODO 首页超值爆款
         $site_name = sys_config('site_name');
         $routine_index_page = sys_data('routine_index_page');
-        $info['fastInfo'] = $routine_index_page[0]['fast_info'] ?? '';//TODO 快速选择简介
-        $info['bastInfo'] = $routine_index_page[0]['bast_info'] ?? '';//TODO 精品推荐简介
-        $info['firstInfo'] = $routine_index_page[0]['first_info'] ?? '';//TODO 首发新品简介
-        $info['salesInfo'] = $routine_index_page[0]['sales_info'] ?? '';//TODO 促销单品简介
-        $logoUrl = sys_config('routine_index_logo');//TODO 促销单品简介
+        $info['fastInfo'] = $routine_index_page[0]['fast_info'] ?? ''; //TODO 快速选择简介
+        $info['bastInfo'] = $routine_index_page[0]['bast_info'] ?? ''; //TODO 精品推荐简介
+        $info['firstInfo'] = $routine_index_page[0]['first_info'] ?? ''; //TODO 首发新品简介
+        $info['salesInfo'] = $routine_index_page[0]['sales_info'] ?? ''; //TODO 促销单品简介
+        $logoUrl = sys_config('routine_index_logo'); //TODO 促销单品简介
         if (strstr($logoUrl, 'http') === false && $logoUrl) {
             $logoUrl = sys_config('site_url') . $logoUrl;
         }
@@ -81,10 +91,10 @@ class PublicController
         $storeProductServices = app()->make(StoreProductServices::class);
         //获取推荐商品
         [$baseList, $firstList, $benefit, $likeInfo, $vipList] = $storeProductServices->getRecommendProductArr((int)$request->uid(), ['is_best', 'is_new', 'is_benefit', 'is_hot']);
-        $info['bastList'] = $baseList;//TODO 精品推荐个数
-        $info['firstList'] = $firstList;//TODO 首发新品个数
-        $info['bastBanner'] = sys_data('routine_home_bast_banner') ?? [];//TODO 首页精品推荐图片
-        $lovely = sys_data('routine_home_new_banner') ?: [];//TODO 首发新品顶部图
+        $info['bastList'] = $baseList; //TODO 精品推荐个数
+        $info['firstList'] = $firstList; //TODO 首发新品个数
+        $info['bastBanner'] = sys_data('routine_home_bast_banner') ?? []; //TODO 首页精品推荐图片
+        $lovely = sys_data('routine_home_new_banner') ?: []; //TODO 首发新品顶部图
         if ($request->uid()) {
             /** @var WechatUserServices $wechatUserService */
             $wechatUserService = app()->make(WechatUserServices::class);
@@ -142,42 +152,51 @@ class PublicController
         if ($request->hasMacro('user')) $userInfo = $request->user();
         if ($request->hasMacro('uid')) $uid = $request->uid();
 
+        //用户等级开关
         $vipOpen = sys_config('member_func_status');
+        //分销功能开关
         $brokerageFuncStatus = sys_config('brokerage_func_status');
+        //余额功能开关
         $balanceFuncStatus = sys_config('balance_func_status');
-        $vipCard = sys_config('member_card_status', 0);
-        $svipOpen = (bool)sys_config('member_card_status');
-        $userService = $invoiceStatus = $deliveryUser = $isUserPromoter = $userVerifyStatus = $userOrder = true;
-
+        //付费会员开关
+        $svipOpen = sys_config('member_card_status');
+        $userService = $userOrder = $userVerifyStatus = $deliveryUser = $invoiceStatus = $isUserPromoter = false;
         if ($uid && $userInfo) {
             /** @var StoreServiceServices $storeService */
             $storeService = app()->make(StoreServiceServices::class);
+            //是否客服
             $userService = $storeService->checkoutIsService(['uid' => $uid, 'status' => 1]);
+            //是否订单管理
             $userOrder = $storeService->checkoutIsService(['uid' => $uid, 'status' => 1, 'customer' => 1]);
-            /** @var SystemStoreStaffServices $systemStoreStaff */
-            $systemStoreStaff = app()->make(SystemStoreStaffServices::class);
-            /** @var UserServices $user */
-            $user = app()->make(UserServices::class);
-            /** @var UserInvoiceServices $userInvoice */
-            $userInvoice = app()->make(UserInvoiceServices::class);
-            $invoiceStatus = $userInvoice->invoiceFuncStatus(false);
-            /** @var DeliveryServiceServices $deliveryService */
-            $deliveryService = app()->make(DeliveryServiceServices::class);
-            $deliveryUser = $deliveryService->checkoutIsService($uid);
-            $isUserPromoter = $user->checkUserPromoter($uid, $userInfo);
-            $userVerifyStatus = $systemStoreStaff->verifyStatus($uid);
+            //是否核销员
+            $userVerifyStatus = app()->make(SystemStoreStaffServices::class)->verifyStatus($uid);
+            //是否配送员
+            $deliveryUser = app()->make(DeliveryServiceServices::class)->checkoutIsService($uid);
+            //发票功能开关
+            $invoiceStatus = app()->make(UserInvoiceServices::class)->invoiceFuncStatus(false);
+            //是否分销员
+            $isUserPromoter = app()->make(UserServices::class)->checkUserPromoter($uid, $userInfo);
         }
         $auth = [];
-        $auth['/pages/users/user_vip/index'] = !$vipOpen;
-        $auth['/pages/users/user_spread_user/index'] = !$brokerageFuncStatus || !$isUserPromoter || $uid == 0;
-        $auth['/pages/users/user_money/index'] = !$balanceFuncStatus;
-        $auth['/pages/admin/order/index'] = !$userOrder || $uid == 0;
-        $auth['/pages/admin/order_cancellation/index'] = (!$userVerifyStatus && !$deliveryUser) || $uid == 0;
-        $auth['/pages/users/user_invoice_list/index'] = !$invoiceStatus;
-        $auth['/pages/annex/vip_paid/index'] = !$vipCard || !$svipOpen;
-        $auth['/kefu/mobile_list'] = !$userService || $uid == 0;
+        $auth['/pages/users/user_vip/index'] = $vipOpen;
+        $auth['/pages/users/user_spread_user/index'] = $brokerageFuncStatus && $isUserPromoter;
+        $auth['/pages/annex/settled/index'] = $brokerageFuncStatus && sys_config('store_brokerage_statu') == 1 && !$isUserPromoter;
+        $auth['/pages/users/user_money/index'] = $balanceFuncStatus;
+        $auth['/pages/admin/order/index'] = $auth['/pages/admin/manage/index'] = $userOrder;
+        $auth['/pages/admin/order_cancellation/index'] = $userVerifyStatus || $deliveryUser;
+        $auth['/pages/users/user_invoice_list/index'] = $invoiceStatus;
+        $auth['/pages/annex/vip_paid/index'] = $svipOpen;
+        $auth['/kefu/mobile_list'] = $userService;
         foreach ($menusInfo as $key => &$value) {
-            if (isset($auth[$value['url']]) && $auth[$value['url']]) {
+            if (isset($value['is_show']) && $value['is_show'] == 0) {
+                unset($menusInfo[$key]);
+                continue;
+            }
+            if ($value['url'] == '/pages/users/user_spread_user/index' && $auth['/pages/annex/settled/index']) {
+                $value['name'] = '分销申请';
+                $value['url'] = '/pages/annex/settled/index';
+            }
+            if (isset($auth[$value['url']]) && !$auth[$value['url']]) {
                 unset($menusInfo[$key]);
                 continue;
             }
@@ -195,7 +214,7 @@ class PublicController
         $routine_contact_type = sys_config('routine_contact_type', 0);
         /** @var DiyServices $diyServices */
         $diyServices = app()->make(DiyServices::class);
-        $diy_data = $diyServices->get(['template_name' => 'member', 'type' => 1], ['value', 'order_status', 'my_banner_status']);
+        $diy_data = $diyServices->get(['template_name' => 'member', 'type' => 1], ['value', 'order_status', 'my_banner_status', 'my_menus_status', 'business_status']);
         $diy_data = $diy_data ? $diy_data->toArray() : [];
         return app('json')->success(['routine_my_menus' => array_merge($menusInfo), 'routine_my_banner' => $my_banner, 'routine_spread_banner' => $bannerInfo, 'routine_contact_type' => $routine_contact_type, 'diy_data' => $diy_data]);
     }
@@ -231,8 +250,8 @@ class PublicController
         $data = $request->postMore([
             ['filename', 'file'],
         ]);
-        if (!$data['filename']) return app('json')->fail(100100);
-        if (CacheService::has('start_uploads_' . $request->uid()) && CacheService::get('start_uploads_' . $request->uid()) >= 100) return app('json')->fail(100101);
+        if (!$data['filename']) return app('json')->fail('参数错误');
+        if (CacheService::has('start_uploads_' . $request->uid()) && CacheService::get('start_uploads_' . $request->uid()) >= 100) return app('json')->fail('非法操作');
         $upload = UploadService::init();
         $info = $upload->to('store/comment')->validate()->move($data['filename']);
         if ($info === false) {
@@ -248,7 +267,7 @@ class PublicController
         CacheService::set('start_uploads_' . $request->uid(), $start_uploads, 86400);
         $res['dir'] = path_to_url($res['dir']);
         if (strpos($res['dir'], 'http') === false) $res['dir'] = $request->domain() . $res['dir'];
-        return app('json')->success(100009, ['name' => $res['name'], 'url' => $res['dir']]);
+        return app('json')->success('图片上传成功', ['name' => $res['name'], 'url' => $res['dir']]);
     }
 
     /**
@@ -282,9 +301,9 @@ class PublicController
                 ChannelService::instance()->send('PAY_SMS_SUCCESS', ['price' => $price, 'number' => $num], [$attach]);
             } catch (\Throwable $e) {
             }
-            return app('json')->success(100010);
+            return app('json')->success('操作成功');
         }
-        return app('json')->fail(100005);
+        return app('json')->fail('操作失败');
     }
 
     /**
@@ -297,7 +316,7 @@ class PublicController
     {
         $uid = (int)$request->uid();
         $services->setUserShare($uid);
-        return app('json')->success(100012);
+        return app('json')->success('更新成功');
     }
 
     /**
@@ -321,7 +340,10 @@ class PublicController
                 return str_replace(['https://', 'http://'], '', $item);
             }, $domainArr);
         }
-        if ($domainArr && (($imageUrl && !in_array($imageUrl, $domainArr)) || ($codeUrl && !in_array($codeUrl, $domainArr)))) {
+        $domainArr[] = 'mp.weixin.qq.com';
+        $imageUrlHost = $imageUrl ? (parse_url($imageUrl)['host'] ?? $imageUrl) : $imageUrl;
+        $codeUrlHost = $codeUrl ? (parse_url($codeUrl)['host'] ?? $codeUrl) : $codeUrl;
+        if ($domainArr && (($imageUrl && !in_array($imageUrlHost, $domainArr)) || ($codeUrl && !in_array($codeUrlHost, $domainArr)))) {
             return app('json')->success(['code' => false, 'image' => false]);
         }
         if ($imageUrl !== '' && !preg_match('/.*(\.png|\.jpg|\.jpeg|\.gif)$/', $imageUrl) && strpos(strtolower($imageUrl), "phar://") !== false) {
@@ -335,9 +357,10 @@ class PublicController
                 $codeTmp = $code = $codeUrl ? image_to_base64($codeUrl) : false;
                 if (!$codeTmp) {
                     $putCodeUrl = put_image($codeUrl);
+                    //TODO
                     $code = $putCodeUrl ? image_to_base64(app()->request->domain(true) . '/' . $putCodeUrl) : false;
                     if ($putCodeUrl) {
-                        unlink($_SERVER["DOCUMENT_ROOT"] . '/' . $putCodeUrl);
+                        unlink($_SERVER["DOCUMENT_ROOT"] . DS . $putCodeUrl);
                     }
                 }
                 return $code;
@@ -346,16 +369,17 @@ class PublicController
                 $imageTmp = $image = $imageUrl ? image_to_base64($imageUrl) : false;
                 if (!$imageTmp) {
                     $putImageUrl = put_image($imageUrl);
+                    //TODO
                     $image = $putImageUrl ? image_to_base64(app()->request->domain(true) . '/' . $putImageUrl) : false;
                     if ($putImageUrl) {
-                        unlink($_SERVER["DOCUMENT_ROOT"] . '/' . $putImageUrl);
+                        unlink($_SERVER["DOCUMENT_ROOT"] . DS . $putImageUrl);
                     }
                 }
                 return $image;
             });
             return app('json')->success(compact('code', 'image'));
         } catch (\Exception $e) {
-            return app('json')->fail(100005);
+            return app('json')->fail('操作失败');
         }
     }
 
@@ -398,6 +422,11 @@ class PublicController
             $uids = array_rand($uids, count($uids) < 3 ? count($uids) : 3);
         }
         $data['avatars'] = $uids ? $user->getColumn(is_array($uids) ? [['uid', 'in', $uids]] : ['uid' => $uids], 'avatar') : [];
+        foreach ($data['avatars'] as &$avatar) {
+            if (strpos($avatar, '/statics/system_images/') !== false) {
+                $avatar = set_file_url($avatar);
+            }
+        }
         return app('json')->success($data);
     }
 
@@ -474,7 +503,7 @@ class PublicController
         $where['productId'] = '';
         if ($data['selectType'] == 1) {
             if (!$data['ids']) {
-                return app('json')->success(100011);
+                return app('json')->success('暂无数据');
             }
             $where['ids'] = $data['ids'] ? explode(',', $data['ids']) : [];
             if ($data['type'] != 2 && $data['type'] != 3 && $data['type'] != 8) {
@@ -525,6 +554,11 @@ class PublicController
     public function getScript()
     {
         return sys_config('statistic_script', '');
+    }
+
+    public function customPcJs()
+    {
+        return sys_config('custom_pc_js', '');
     }
 
     /**
@@ -691,27 +725,29 @@ class PublicController
      */
     public function getMallBasicConfig()
     {
-        $data['site_name'] = sys_config('site_name');//网站名称
-        $data['site_url'] = sys_config('site_url');//网站地址
-        $data['wap_login_logo'] = sys_config('wap_login_logo');//移动端登录logo
-        $data['record_No'] = sys_config('record_No');//备案号
-        $data['network_security'] = sys_config('network_security');//网安备案
-        $data['store_self_mention'] = sys_config('store_self_mention');//是否开启到店自提
-        $data['invoice_func_status'] = sys_config('invoice_func_status');//发票功能启用
-        $data['special_invoice_status'] = sys_config('special_invoice_status');//专用发票启用
-        $data['member_func_status'] = sys_config('member_func_status');//用户等级启用
-        $data['balance_func_status'] = sys_config('balance_func_status');//余额功能启用
-        $data['recharge_switch'] = sys_config('recharge_switch');//小程序充值开关
-        $data['member_card_status'] = sys_config('member_card_status');//是否开启付费会员
-        $data['member_price_status'] = sys_config('member_price_status');//商品会员折扣价展示启用
-        $data['ali_pay_status'] = sys_config('ali_pay_status') != '0';//支付宝是否启用
-        $data['pay_weixin_open'] = sys_config('pay_weixin_open') != '0';//微信是否启用
-        $data['yue_pay_status'] = sys_config('yue_pay_status') == 1 && sys_config('balance_func_status') != 0;//余额是否启用
-        $data['offline_pay_status'] = sys_config('offline_pay_status') == 1;//线下是否启用
-        $data['friend_pay_status'] = sys_config('friend_pay_status') == 1;//好友是否启用
-        $data['wechat_auth_switch'] = (int)in_array(1, sys_config('routine_auth_type'));//微信登录开关
-        $data['phone_auth_switch'] = (int)in_array(2, sys_config('routine_auth_type'));//手机号登录开关
-        $data['wechat_status'] = sys_config('wechat_appid') != '' && sys_config('wechat_appsecret') != '';//公众号是否配置
+        $data['site_name'] = sys_config('site_name'); //网站名称
+        $data['site_url'] = sys_config('site_url'); //网站地址
+        $data['wap_login_logo'] = sys_config('wap_login_logo'); //移动端登录logo
+        $data['record_No'] = sys_config('record_No'); //备案号
+        $data['icp_url'] = sys_config('icp_url'); //备案号链接
+        $data['network_security'] = sys_config('network_security'); //网安备案
+        $data['network_security_url'] = sys_config('network_security_url'); //网安备案链接
+        $data['store_self_mention'] = sys_config('store_self_mention'); //是否开启到店自提
+        $data['invoice_func_status'] = sys_config('invoice_func_status'); //发票功能启用
+        $data['special_invoice_status'] = sys_config('special_invoice_status'); //专用发票启用
+        $data['member_func_status'] = sys_config('member_func_status'); //用户等级启用
+        $data['balance_func_status'] = sys_config('balance_func_status'); //余额功能启用
+        $data['recharge_switch'] = sys_config('recharge_switch'); //小程序充值开关
+        $data['member_card_status'] = sys_config('member_card_status'); //是否开启付费会员
+        $data['member_price_status'] = sys_config('member_price_status'); //商品会员折扣价展示启用
+        $data['ali_pay_status'] = sys_config('ali_pay_status') != '0'; //支付宝是否启用
+        $data['pay_weixin_open'] = sys_config('pay_weixin_open') != '0'; //微信是否启用
+        $data['yue_pay_status'] = sys_config('yue_pay_status') == 1 && sys_config('balance_func_status') != 0; //余额是否启用
+        $data['offline_pay_status'] = sys_config('offline_pay_status') == 1; //线下是否启用
+        $data['friend_pay_status'] = sys_config('friend_pay_status') == 1; //好友是否启用
+        $data['wechat_auth_switch'] = (int)in_array(1, sys_config('routine_auth_type')); //微信登录开关
+        $data['phone_auth_switch'] = (int)in_array(2, sys_config('routine_auth_type')); //手机号登录开关
+        $data['wechat_status'] = sys_config('wechat_appid') != '' && sys_config('wechat_appsecret') != ''; //公众号是否配置
         $data['site_func'] = sys_config('model_checkbox', ['seckill', 'bargain', 'combination']);
         return app('json')->success($data);
     }
@@ -751,13 +787,321 @@ class PublicController
             ['out_trade_no', ''],
             ['check_code', ''],
         ], true);
-        $data['site_name'] = sys_config('site_name');//网站名称
-        $data['site_url'] = sys_config('site_url');//网站地址
-        $data['site_logo'] = sys_config('wap_login_logo');//移动端登录logo
+        $data['site_name'] = sys_config('site_name'); //网站名称
+        $data['site_url'] = sys_config('site_url'); //网站地址
+        $data['site_logo'] = sys_config('wap_login_logo'); //移动端登录logo
         $order = app()->make(StoreOrderServices::class)->getOne(['order_id' => $out_trade_no]);
         $data['goods_name'] = app()->make(StoreOrderCartInfoServices::class)->getCarIdByProductTitle((int)$order['id']);
         $data['pay_price'] = $order['pay_price'];
         $data['jump_url'] = sys_config('site_url') . '/pages/goods/order_pay_status/index?order_id=' . $out_trade_no . '&msg=支付成功&type=3&totalPrice=' . $data['pay_price'];
         return app('json')->header(['X-Frame-Options' => 'payapp.weixin.qq.com'])->success($data);
+    }
+
+    public function getTransferInfo(Request $request, $order_id, $type)
+    {
+        $extractServices = app()->make(UserExtractServices::class);
+        $lotteryRecordServices = app()->make(LuckLotteryRecordServices::class);
+        $uid = (int)$request->uid();
+        if ($type == 1) {
+            $info = $extractServices->getExtractByOrderId($uid, $order_id);
+            $info['true_extract_price'] = bcsub($info['extract_price'], $info['extract_fee'], 2);
+        } else {
+            $info = $lotteryRecordServices->getRecordByOrderId($uid, $order_id);
+            $info['true_extract_price'] = $info['num'];
+        }
+        if ($info['state'] == 'WAIT_USER_CONFIRM') {
+            $pay = new Pay('v3_wechat_pay');
+            $res = $pay->queryTransferBills($order_id);
+            if (isset($res['fail_reason']) && $res['fail_reason'] != '') {
+                if ($type == 1) {
+                    $extractServices->changeFail($info['id'], $info, '提现失败，原因：超时未领取');
+                    $extractServices->update($info['id'], ['state' => 'FAIL']);
+                } else {
+                    $lotteryRecordServices->update($info['id'], ['state' => 'FAIL']);
+                }
+                $info['state'] = 'FAIL';
+            }
+        }
+        switch ($info['channel_type']) {
+            case 'wechat':
+                $info['wechat_appid'] = sys_config('wechat_appid');
+                break;
+            case 'routine':
+                $info['wechat_appid'] = sys_config('routine_appid');
+                break;
+            case 'app':
+                $info['wechat_appid'] = sys_config('app_appid');
+                break;
+        }
+        $info['mchid'] = sys_config('pay_weixin_mchid');
+        return app('json')->success($info);
+    }
+
+    /**
+     * 获取主题信息
+     * @param string $type 主题类型，当为'user'时会附加用户权限和订单统计信息
+     * @return \think\Response
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\DbException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @author wuhaotian
+     * @email 442384644@qq.com
+     * @date 2025/12/25
+     */
+    public function themeInfo(Request $request, $type = '')
+    {
+        // 获取主题ID参数
+        [$theme_id] = $request->getMore([
+            ['theme_id', 0],
+        ], true);
+        $themeInfo = app()->make(ThemeServices::class)->getThemeInfo($theme_id, $type);
+
+        if (in_array($type, ['home', 'detail', 'user']) && $themeInfo) {
+            foreach ($themeInfo['value'] as &$userDataItem) {
+                if ($userDataItem['name'] == 'customerService') {
+                    $userDataItem['routine_contact_type'] = (int)sys_config('routine_contact_type');
+                }
+            }
+        }
+
+        // 当类型为'user'时，处理用户相关的权限和菜单配置
+        if ($type == 'user') {
+            // 初始化用户信息
+            $uid = 0;
+            $userInfo = [];
+            if ($request->hasMacro('uid')) $uid = $request->uid();
+            if ($request->hasMacro('user')) $userInfo = $request->user();
+
+            // 获取系统功能开关配置
+            //用户等级开关
+            $levelOpen = (bool)sys_config('member_func_status');
+            //分销功能开关
+            $brokerageOpen = (bool)sys_config('brokerage_func_status');
+            //余额功能开关
+            $balanceOpen = (bool)sys_config('balance_func_status');
+            //付费会员开关
+            $sVipOpen = (bool)sys_config('member_card_status');
+            //发票功能
+            $invoiceOpen = (bool)sys_config('invoice_func_status');
+
+            // 初始化用户角色标识
+            $userIsService = $userIsOrder = $userIsVerify = $userIsDelivery = $userIsPromoter = false;
+
+            if ($uid && $userInfo) {
+                /** @var StoreServiceServices $storeService */
+                $storeService = app()->make(StoreServiceServices::class);
+                /** @var StoreOrderServices $orderServices */
+                $orderServices = app()->make(StoreOrderServices::class);
+                /** @var StoreOrderRefundServices $storeOrderRefundServices */
+                $orderRefundServices = app()->make(StoreOrderRefundServices::class);
+
+                // 检查用户角色权限
+                //是否客服
+                $userIsService = (bool)$storeService->checkoutIsService(['uid' => $uid, 'status' => 1]);
+                //是否订单管理
+                $userIsOrder = (bool)$storeService->checkoutIsService(['uid' => $uid, 'status' => 1, 'customer' => 1]);
+                //是否核销员
+                $userIsVerify = (bool)app()->make(SystemStoreStaffServices::class)->verifyStatus($uid);
+                //是否配送员
+                $userIsDelivery = (bool)app()->make(DeliveryServiceServices::class)->checkoutIsService($uid);
+                //是否分销员
+                $userIsPromoter = (bool)app()->make(UserServices::class)->checkUserPromoter($uid, $userInfo);
+
+                // 统计各状态订单数量，用于菜单角标显示
+                $orderAuth = [];
+                $countWhere = ['is_del' => 0, 'is_system_del' => 0, 'uid' => $uid];
+                $orderAuth['/pages/goods/order_list/index'] = (int)$orderServices->count($countWhere + ['refund_status' => [0, 3], 'pid' => 0]);
+                $orderAuth['/pages/goods/order_list/index?status=0'] = (int)$orderServices->count($countWhere + ['status' => 0]);
+                $orderAuth['/pages/goods/order_list/index?status=1'] = (int)$orderServices->count($countWhere + ['status' => 1, 'pid' => 0]);
+                $orderAuth['/pages/goods/order_list/index?status=2'] = (int)$orderServices->count($countWhere + ['status' => 2, 'pid' => 0]);
+                $orderAuth['/pages/goods/order_list/index?status=3'] = (int)$orderServices->count($countWhere + ['status' => 3, 'pid' => 0]);
+                $orderAuth['/pages/goods/order_list/index?status=4'] = (int)$orderServices->count($countWhere + ['status' => 4, 'pid' => 0]);
+                $orderAuth['/pages/users/user_return_list/index'] = (int)$orderRefundServices->count(['uid' => $uid, 'is_cancel' => 0, 'is_del' => 0, 'refund_type' => [1, 2, 4, 5]]);
+            }
+
+            // 配置各页面的访问权限
+            $auth = [];
+            $auth['/pages/users/user_vip/index'] = $levelOpen;
+            $auth['/pages/users/user_spread_user/index'] = $brokerageOpen && $userIsPromoter;
+            $auth['/pages/annex/settled/index'] = $brokerageOpen && sys_config('store_brokerage_statu') == 1 && !$userIsPromoter;
+            $auth['/pages/users/user_money/index'] = $balanceOpen;
+            $auth['/pages/admin/order/index'] = $auth['/pages/admin/manage/index'] = $userIsOrder;
+            $auth['/pages/admin/order_cancellation/index'] = $userIsVerify || $userIsDelivery;
+            $auth['/pages/users/user_invoice_list/index'] = $invoiceOpen;
+            $auth['/pages/annex/vip_paid/index'] = $sVipOpen;
+            $auth['/kefu/mobile_list'] = $userIsService;
+
+            // 处理主题菜单配置
+            if ($themeInfo) {
+                foreach ($themeInfo['value'] as &$userDataItem) {
+                    if ($userDataItem['name'] == 'menus') {
+                        foreach ($userDataItem['menuConfig']['list'] as &$menuDataItem) {
+                            // 设置菜单显示权限和角标数量
+                            $menuDataItem['show'] = ($auth[$menuDataItem['info'][1]['value']] ?? true) && $menuDataItem['show'];
+                            $menuDataItem['num'] = $orderAuth[$menuDataItem['info'][1]['value']] ?? 0;
+
+                            // 处理客服链接，拼接完整URL
+                            if ($menuDataItem['info'][1]['value'] == '/kefu/mobile_list') {
+                                $menuDataItem['info'][1]['value'] = sys_config('site_url') . $menuDataItem['info'][1]['value'];
+                                // 小程序环境强制使用https
+                                if ($request->isRoutine()) {
+                                    $menuDataItem['info'][1]['value'] = str_replace('http://', 'https://', $menuDataItem['info'][1]['value']);
+                                }
+                            }
+
+                            // 处理客服聊天页面，添加联系方式类型配置
+                            if ($menuDataItem['info'][1]['value'] == '/pages/extension/customer_list/chat') {
+                                if ($request->isRoutine()) {
+                                    $menuDataItem['routine_contact_type'] = (int)sys_config('routine_contact_type', 0);
+                                }
+                            }
+
+                            if ($menuDataItem['info'][1]['value'] == '/pages/users/user_spread_user/index' && $brokerageOpen && sys_config('store_brokerage_statu') == 1 && !$userIsPromoter) {
+                                $menuDataItem['info'][0]['value'] = '分销申请';
+                                $menuDataItem['info'][1]['value'] = '/pages/annex/settled/index';
+                                $menuDataItem['show'] = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return app('json')->success($themeInfo);
+    }
+
+    /**
+     * 获取主题版本信息
+     * @return \think\Response
+     * @author wuhaotian
+     * @email 442384644@qq.com
+     * @date 2025/12/25
+     */
+    public function themeVersion(Request $request)
+    {
+        [$theme_id] = $request->getMore([
+            ['theme_id', 0],
+        ], true);
+        $themeVersion = app()->make(ThemeServices::class)->getThemeVersion($theme_id);
+        return app('json')->success(['version' => $themeVersion]);
+    }
+
+    /**
+     * 自定义组件-用户
+     * @param Request $request
+     * @return \think\Response
+     * @author wuhaotian
+     * @email 442384644@qq.com
+     * @date 2026/1/12
+     */
+    public function themeUser(Request $request)
+    {
+        $userInfo = $request->uid() ? $request->user() : [];
+        if (!$userInfo) return app('json')->fail('暂无数据');
+        $user = [
+            'nickname' => $userInfo['nickname'],
+            'uid' => $userInfo['uid'],
+            'image' => $userInfo['avatar'],
+            'collection_num' => app()->make(StoreProductRelationServices::class)->count(['uid' => $userInfo['uid']]),
+            'cart_num' => app()->make(StoreCartServices::class)->count(['uid' => $userInfo['uid']]),
+            'order_num' => $userInfo['pay_count'],
+            'integral' => $userInfo['integral'],
+            'now_money' => $userInfo['now_money'],
+            'brokerage_price' => $userInfo['brokerage_price'],
+            'unread_msg_num' => app()->make(MessageSystemServices::class)->count(['uid' => $userInfo['uid'], 'look' => 0]),
+        ];
+        return app('json')->success($user);
+    }
+
+    /**
+     * 自定义组件-文章
+     * @param Request $request
+     * @return \think\Response
+     * @throws \ReflectionException
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\DbException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @author wuhaotian
+     * @email 442384644@qq.com
+     * @date 2026/1/12
+     */
+    public function themeArticle(Request $request)
+    {
+        $where = $request->getMore([
+            ['ids', ''],
+            ['cid', ''],
+            ['order', 0],
+            ['sort', 0],
+            ['limit', 10],
+        ]);
+        $data = app()->make(ArticleServices::class)->getThemeArticle($where);
+        return app('json')->success($data);
+    }
+
+    /**
+     * 自定义组件-优惠券
+     * @param Request $request
+     * @return \think\Response
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\DbException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @author wuhaotian
+     * @email 442384644@qq.com
+     * @date 2026/1/14
+     */
+    public function themeCoupon(Request $request)
+    {
+        $where = $request->getMore([
+            ['ids', ''],
+            ['type', ''],
+            ['user_type', ''],
+            ['send_type', ''],
+            ['is_min_price', 0],
+            ['min_price', 0],
+            ['start_time', ''],
+            ['end_time', ''],
+            ['order', 0],
+            ['sort', 0],
+            ['limit', 10],
+        ]);
+        $data = app()->make(StoreCouponIssueServices::class)->getThemeCoupon($where);
+        return app('json')->success($data);
+    }
+
+    /**
+     * 自定义组件-商品
+     * @param Request $request
+     * @return \think\Response
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\DbException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @author wuhaotian
+     * @email 442384644@qq.com
+     * @date 2026/1/14
+     */
+    public function themeProduct(Request $request)
+    {
+        $where = $request->getMore([
+            ['ids', ''],
+            ['cate_ids', ''],
+            ['order', 0],
+            ['sort', 0],
+            ['limit', 10],
+        ]);
+        $data = app()->make(StoreProductServices::class)->getThemeProduct($where);
+        return app('json')->success($data);
+    }
+
+    /**
+     * 获取主题导航数据
+     * 调用 ThemeServices 中的 themeNavigation 方法获取导航配置并返回 JSON 响应
+     * @return mixed
+     */
+    public function themeNavigation()
+    {
+        // 实例化 ThemeServices 并调用 themeNavigation 方法获取导航数据
+        $data = app()->make(ThemeServices::class)->themeNavigation();
+        // 返回成功响应，包含导航数据
+        return app('json')->success($data);
     }
 }

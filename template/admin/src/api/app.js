@@ -174,6 +174,74 @@ export function routineInfo() {
   });
 }
 
+// ==================== 小程序 CI 自动化上传 ====================
+
+/**
+ * @description 获取小程序CI运行环境状态
+ */
+export function routineCIEnvironment() {
+  return request({
+    url: 'app/routine/ci/environment',
+    method: 'get',
+  });
+}
+
+/**
+ * @description 获取环境安装指南
+ */
+export function routineCIGuide() {
+  return request({
+    url: 'app/routine/ci/guide',
+    method: 'get',
+  });
+}
+
+/**
+ * @description 获取小程序上传配置
+ */
+export function routineCIConfig() {
+  return request({
+    url: 'app/routine/ci/config',
+    method: 'get',
+  });
+}
+
+/**
+ * @description 保存小程序上传密钥
+ * @param {Object} data { key_content: 密钥内容 }
+ */
+export function routineCISaveKey(data) {
+  return request({
+    url: 'app/routine/ci/private_key',
+    method: 'post',
+    data,
+  });
+}
+
+/**
+ * @description 上传小程序代码
+ * @param {Object} data { version: 版本号, desc: 描述, is_live: 是否开启直播 }
+ */
+export function routineCIUpload(data) {
+  return request({
+    url: 'app/routine/ci/upload',
+    method: 'post',
+    data,
+  });
+}
+
+/**
+ * @description 获取小程序预览二维码
+ * @param {Object} data { page_path: 预览页面路径 }
+ */
+export function routineCIPreview(data) {
+  return request({
+    url: 'app/routine/ci/preview',
+    method: 'post',
+    data,
+  });
+}
+
 /**
  * @description  自动回复 -- 关键字 列表
  * @param {Object} param data {Object} 传值参数
@@ -387,7 +455,7 @@ export function cityList() {
  * @description  客服自动回复 -- 关键字 列表
  * @param {Object} param data {Object} 传值参数
  */
- export function kefuAutoReplyListApi(params) {
+export function kefuAutoReplyListApi(params) {
   return request({
     url: `app/kefu/auto_reply/list`,
     method: 'get',
@@ -399,7 +467,7 @@ export function cityList() {
  * @description  客服自动回复添加编辑表单
  * @param {Object} param data {Object} 传值参数
  */
- export function kefuAutoReplyForm(id) {
+export function kefuAutoReplyForm(id) {
   return request({
     url: `app/kefu/auto_reply/form/` + id,
     method: 'get',
@@ -410,7 +478,7 @@ export function cityList() {
  * @description 小程序链接 -- 列表
  * @param {Object} param data {Object} 传值参数
  */
- export function routineSchemeList(data) {
+export function routineSchemeList(data) {
   return request({
     url: 'app/routine/scheme_list',
     method: 'get',
@@ -422,7 +490,7 @@ export function cityList() {
  * @description 小程序链接 -- 创建修改表单
  * @param {Number} param id {Number} 标签id
  */
- export function routineSchemeForm(id) {
+export function routineSchemeForm(id) {
   return request({
     url: `app/routine/scheme_form/${id}`,
     method: 'get',
@@ -433,7 +501,7 @@ export function cityList() {
  * @description 小程序链接 -- 删除
  * @param {Number} param id {Number} 标签id
  */
- export function routineSchemeDel(id) {
+export function routineSchemeDel(id) {
   return request({
     url: `app/routine/scheme_del/${id}`,
     method: 'delete',

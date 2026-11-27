@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -45,7 +45,8 @@ class SystemAttachment extends AuthController
     {
         $where = $this->request->getMore([
             ['pid', 0],
-            ['real_name', '']
+            ['real_name', ''],
+            ['type', 0],
         ]);
         return app('json')->success($this->service->getImageList($where));
     }
@@ -60,7 +61,7 @@ class SystemAttachment extends AuthController
             ['ids', '']
         ], true);
         $this->service->del($ids);
-        return app('json')->success(100002);
+        return app('json')->success('删除成功');
     }
 
     /**
@@ -77,7 +78,7 @@ class SystemAttachment extends AuthController
             ['menu_name', '']
         ], true);
         $res = $this->service->upload((int)$pid, $file, $upload_type, $type, $menuName);
-        return app('json')->success(100032, ['src' => $res]);
+        return app('json')->success('上传成功', ['src' => $res]);
     }
 
     /**
@@ -91,7 +92,7 @@ class SystemAttachment extends AuthController
             ['images', '']
         ]);
         $this->service->move($data);
-        return app('json')->success(100034);
+        return app('json')->success('移动成功');
     }
 
     /**
@@ -103,10 +104,10 @@ class SystemAttachment extends AuthController
     {
         $realName = $this->request->post('real_name', '');
         if (!$realName) {
-            return app('json')->fail(400104);
+            return app('json')->fail('文件名称不能为空');
         }
         $this->service->update($id, ['real_name' => $realName]);
-        return app('json')->success(100001);
+        return app('json')->success('修改成功');
     }
 
     /**
@@ -197,6 +198,29 @@ class SystemAttachment extends AuthController
             ['images', []]
         ]);
         $this->service->onlineUpload($data);
-        return app('json')->success(100032);
+        return app('json')->success('上传成功');
+    }
+
+    public function videoDataSave()
+    {
+        $data = $this->request->postMore([
+            ['pid', 0],
+            ['video_name', ''],
+            ['video_path', '']
+        ]);
+        $this->service->attachmentAdd(
+            $data['video_name'],
+            0,
+            'video/mp4',
+            $data['video_path'],
+            $data['video_path'],
+            $data['pid'],
+            (int)sys_config('upload_type', 1),
+            time(),
+            1,
+            1,
+            $data['video_name']
+        );;
+        return app('json')->success('上传成功');
     }
 }

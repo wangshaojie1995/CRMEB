@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -17,6 +17,7 @@ use app\dao\activity\lottery\LuckPrizeDao;
 use app\services\activity\coupon\StoreCouponIssueServices;
 use crmeb\exceptions\AdminException;
 use crmeb\exceptions\ApiException;
+use crmeb\services\CacheService;
 
 /**
  *
@@ -61,6 +62,7 @@ class LuckPrizeServices extends BaseServices
         'status' => 1,
         'is_del' => 0,
         'add_time' => 0,
+        'percent' => 0,
     ];
 
     /**
@@ -75,22 +77,22 @@ class LuckPrizeServices extends BaseServices
     /**
      * 奖品数据验证
      * @param array $data
-     * @return bool
+     * @return array
      */
     public function checkPrizeData(array $data)
     {
         $data = array_merge($this->prize, array_intersect_key($data, $this->prize));
         if (!isset($data['name']) || !$data['name']) {
-            throw new AdminException(400538);
+            throw new AdminException('请填写奖品名称');
         }
         if (!isset($data['image']) || !$data['image']) {
-            throw new AdminException(400539);
+            throw new AdminException('请选择奖品图片');
         }
-        if (!isset($data['chance']) || !$data['chance']) {
-            throw new AdminException(400540);
+        if (!isset($data['percent']) || !$data['percent']) {
+            throw new AdminException('请填写奖品中奖概率');
         }
         if (!isset($data['type']) || !isset($this->prize_type[$data['type']])) {
-            throw new AdminException(400541);
+            throw new AdminException('请选择奖品类型');
         }
         if (in_array($data['type'], [2, 3, 4]) && (!isset($data['num']) || !$data['num'])) {
             $msg = '';
@@ -105,13 +107,13 @@ class LuckPrizeServices extends BaseServices
                     $msg = '红包';
                     break;
             }
-            throw new AdminException(400542, ['type' => $msg]);
+            throw new AdminException('请填写奖品赠送{:type}数', ['type' => $msg]);
         }
         if ($data['type'] == 5 && (!isset($data['coupon_id']) || !$data['coupon_id'])) {
-            throw new AdminException(400543);
+            throw new AdminException('请选择优惠券');
         }
         if ($data['type'] == 6 && (!isset($data['product_id']) || !$data['product_id'])) {
-            throw new AdminException(400337);
+            throw new AdminException('请选择商品');
         }
         return $data;
     }
@@ -138,35 +140,24 @@ class LuckPrizeServices extends BaseServices
      */
     function getLuckPrize(array $data)
     {
+        $totalPercent = array_sum(array_column($data, 'percent')) * 100;
         $prize = [];
         if (!$data) return $prize;
-        $coupon = [];
-        $coupon_ids = array_unique(array_column($data, 'coupon_id'));
-        if ($coupon_ids) {
-            /** @var StoreCouponIssueServices $couponServices */
-            $couponServices = app()->make(StoreCouponIssueServices::class);
-            $coupon = $couponServices->getGiveCoupon([['id', 'IN', $coupon_ids]]);
-            if ($coupon) $coupon = array_combine(array_column($coupon, 'id'), $coupon);
-        }
-        $totalChance = array_sum(array_column($data, 'chance'));
-        if (!$totalChance) return $prize;
-        $startChance = 0;
         mt_srand();
-        $prizeChance = rand(0, $totalChance);
+        $random = mt_rand(1, (int)$totalPercent);
+        $range = 0;
         $newPrize = array_combine(array_column($data, 'type'), $data);
         foreach ($data as $item) {
-            $newStartChance = $item['chance'] + $startChance;
-            //随机数在这个基数端内 且该商品数量大于0 中奖
-            if ($prizeChance >= $startChance && $prizeChance < $newStartChance) {
-                //随机到不是未中奖奖品-》设置了奖品数量-》数量不足时 返回未中奖奖品   || 抽到优惠券 数量不足
-                if (($item['type'] != 1 && $item['total'] != -1 && $item['total'] <= 0) || ($item['coupon_id'] && $coupon && !isset($coupon[$item['coupon_id']]))) {
+            // 转换百分比为千分位范围
+            $range += $item['percent'] * 100; // 例如 12.34% -> 1234
+            if ($random <= $range) {
+                if (($item['type'] != 1 && $item['total'] != -1 && $item['total'] <= 0)) {
                     $prize = $newPrize[1] ?? [];
                 } else {
                     $prize = $item;
                 }
                 break;
             }
-            $startChance = $newStartChance;
         }
         return $prize;
     }
@@ -187,13 +178,13 @@ class LuckPrizeServices extends BaseServices
             $prize = $this->dao->get($id);
         }
         if (!$prize) {
-            throw new ApiException(410048);
+            throw new ApiException('奖品不存在');
         }
         //不是未中奖奖品 减少奖品数量
         if ($prize['type'] != 1 && $prize['total'] >= 1) {
             $total = $prize['total'] - 1;
             if (!$this->dao->update($id, ['total' => $total], 'id')) {
-                throw new ApiException(410070);
+                throw new ApiException('抽奖减少奖品总数失败');
             }
         }
         return true;

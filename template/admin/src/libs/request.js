@@ -15,7 +15,7 @@ import Setting from '@/setting';
 import router from '@/router';
 const service = axios.create({
   baseURL: Setting.apiBaseURL,
-  timeout: 10000, // 请求超时时间
+  timeout: 100000, // 请求超时时间
 });
 
 axios.defaults.withCredentials = true; // 携带cookie
@@ -62,27 +62,23 @@ service.interceptors.response.use(
     switch (code) {
       case 200:
         return obj;
-      case 110002:
-      case 110003:
-      case 110004:
+      case 401:
         localStorage.clear();
         removeCookies('token');
         removeCookies('expires_time');
         removeCookies('uuid');
-        router.replace({ name: 'login' });
-        break;
-      case 110005:
-      case 110006:
-      case 110007:
+        router.replace({ name: 'login' }).catch(() => {});
+        return Promise.reject({ msg: '未登录' });
+      case 402:
         removeCookies('kefuInfo');
         removeCookies('kefu_token');
         removeCookies('kefu_expires_time');
         removeCookies('kefu_uuid');
-        router.replace({ path: '/kefu' });
-        break;
-      case 110008:
-        router.replace({ name: 'system_opendir_login' });
-        break;
+        router.replace({ path: '/kefu' }).catch(() => {});
+        return Promise.reject({ msg: '未登录' });
+      case 403:
+        router.replace({ name: 'system_opendir_login' }).catch(() => {});
+        return Promise.reject({ msg: '没有权限' });
       default:
         return Promise.reject(obj || { msg: '未知错误' });
     }

@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -58,6 +58,13 @@ class StoreCategoryServices extends BaseServices
                 if (!in_array($arr, $list)) {
                     $list[] = $arr;
                 }
+            }
+        }
+        foreach ($list as &$value) {
+            if ($value['pid'] == 0) {
+                $value['url'] = '/pages/goods/goods_list/index?cid=' . $value['id'] . '&title=' . $value['cate_name'];
+            } else {
+                $value['url'] = '/pages/goods/goods_list/index?sid=' . $value['id'] . '&title=' . $value['cate_name'];
             }
         }
         $list = get_tree_children($list);
@@ -116,7 +123,7 @@ class StoreCategoryServices extends BaseServices
         $res = $res && $this->dao->update($id, ['is_show' => $is_show], 'pid');
         CacheService::clear();
         if (!$res) {
-            throw new AdminException(100005);
+            throw new AdminException('操作失败');
         }
     }
 
@@ -171,9 +178,9 @@ class StoreCategoryServices extends BaseServices
     public function menus($pid = '')
     {
         $list = $this->dao->getMenus(['pid' => 0]);
-        $menus = [['value' => 0, 'label' => '顶级菜单']];
+        $menus = [['value' => 0, 'label' => '顶级分类']];
         if ($pid === 0) return $menus;
-        if ($pid != '') $menus = [];
+//        if ($pid != '') $menus = [];
         foreach ($list as $menu) {
             $menus[] = ['value' => $menu['id'], 'label' => $menu['cate_name']];
         }
@@ -191,21 +198,21 @@ class StoreCategoryServices extends BaseServices
     public function createData($data)
     {
         if (!$data['cate_name']) {
-            throw new AdminException(400100);
+            throw new AdminException('请填写分类名称');
         }
 
         if ($this->dao->getOne(['cate_name' => $data['cate_name'], 'pid' => $data['pid']])) {
-            throw new AdminException(400101);
+            throw new AdminException('该分类已存在');
         }
 
         $parent = $this->dao->getOne(['id' => $data['pid']]);
         if ($data['pid'] && (!$parent || $parent['pid'] > 0)) {
-            throw new AdminException(400740);
+            throw new AdminException('只支持两级分类');
         }
 
         $data['add_time'] = time();
         $res = $this->dao->save($data);
-        if (!$res) throw new AdminException(100006);
+        if (!$res) throw new AdminException('保存失败');
 
         CacheService::clear();
 
@@ -226,24 +233,24 @@ class StoreCategoryServices extends BaseServices
     public function editData($id, $data)
     {
         if (!$data['cate_name']) {
-            throw new AdminException(400100);
+            throw new AdminException('请填写分类名称');
         }
 
         $parent = $this->dao->getOne(['id' => $data['pid']]);
         if ($parent && $parent['pid'] > 0) {
-            throw new AdminException(400740);
+            throw new AdminException('只支持两级分类');
         }
 
         $cate = $this->dao->getOne(['cate_name' => $data['cate_name'], 'pid' => $data['pid']]);
         if ($cate && $cate['id'] != $id) {
-            throw new AdminException(400101);
+            throw new AdminException('该分类已存在');
         }
         $this->transaction(function () use ($id, $data) {
             $res = $this->dao->update($id, $data);
             /** @var StoreProductCateServices $productCate */
             $productCate = app()->make(StoreProductCateServices::class);
             $res = $res && $productCate->update(['cate_id' => $id], ['cate_pid' => $data['pid']]);
-            if (!$res) throw new AdminException(100007);
+            if (!$res) throw new AdminException('修改失败');
         });
 
         CacheService::clear();
@@ -256,10 +263,10 @@ class StoreCategoryServices extends BaseServices
     public function del(int $id)
     {
         if ($this->dao->count(['pid' => $id])) {
-            throw new AdminException(400102);
+            throw new AdminException('请先删除子分类');
         }
         $res = $this->dao->delete($id);
-        if (!$res) throw new AdminException(100008);
+        if (!$res) throw new AdminException('删除失败');
 
         CacheService::clear();
     }
@@ -345,5 +352,32 @@ class StoreCategoryServices extends BaseServices
         return CacheService::remember('CATEGORY_LIST', function () use ($where) {
             return $this->dao->getALlByIndex($where, 'id, cate_name, pid, pic, big_pic, sort, is_show, add_time');
         }, 86400);
+    }
+
+    /**
+     * @param string $cate_name_one
+     * @param string $cate_name_two
+     * @return array
+     * @author wuhaotian
+     * @email 442384644@qq.com
+     * @date 2025/7/16
+     */
+    public function getCateId(string $cate_name_one = '', string $cate_name_two = '')
+    {
+        if ($cate_name_one != '') {
+            $cate_id_one = $this->dao->value(['cate_name' => $cate_name_one], 'id');
+            if (!$cate_id_one) {
+                $cate_id_one = $this->dao->save(['cate_name' => $cate_name_one, 'add_time' => time()])['id'];
+            }
+            if ($cate_name_two != '') {
+                $cate_id_two = $this->dao->value(['cate_name' => $cate_name_two, 'pid' => $cate_id_one], 'id');
+                if (!$cate_id_two) {
+                    $cate_id_two = $this->dao->save(['cate_name' => $cate_name_two, 'pid' => $cate_id_one, 'add_time' => time()])['id'];
+                }
+                return [$cate_id_one, $cate_id_two];
+            }
+            return [$cate_id_one];
+        }
+        return [];
     }
 }

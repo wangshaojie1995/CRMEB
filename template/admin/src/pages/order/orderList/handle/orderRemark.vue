@@ -1,16 +1,18 @@
 <template>
   <el-dialog :visible.sync="modals" title="请修改内容" class="order_box" :show-close="true" width="540px">
     <el-form
-        ref="formValidate"
-        :model="formValidate"
-        :rules="ruleValidate"
-        label-width="80px"
-        label-position="right"
-        @submit.native.prevent>
+      ref="formValidate"
+      :model="formValidate"
+      :rules="ruleValidate"
+      label-width="80px"
+      label-position="right"
+      @submit.native.prevent
+    >
       <el-form-item label="备注：" prop="remark">
         <el-input
           v-model="formValidate.remark"
           :maxlength="200"
+          :rows="4"
           show-word-limit
           type="textarea"
           placeholder="订单备注"

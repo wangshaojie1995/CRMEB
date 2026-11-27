@@ -2,8 +2,14 @@
   <div>
     <el-tabs v-model="currentTab" @tab-click="onClickTab" v-if="tablists">
       <el-tab-pane name="null" label="全部"></el-tab-pane>
-      <el-tab-pane name="0" :label="orderChartType.un_paid > 0 ? `待支付(${orderChartType.un_paid})` : `待支付`"></el-tab-pane>
-      <el-tab-pane name="1" :label="orderChartType.un_send > 0 ? `待发货(${orderChartType.un_send})` : `待发货`"></el-tab-pane>
+      <el-tab-pane
+        name="0"
+        :label="orderChartType.un_paid > 0 ? `待支付(${orderChartType.un_paid})` : `待支付`"
+      ></el-tab-pane>
+      <el-tab-pane
+        name="1"
+        :label="orderChartType.un_send > 0 ? `待发货(${orderChartType.un_send})` : `待发货`"
+      ></el-tab-pane>
       <el-tab-pane name="5" label="待核销"></el-tab-pane>
       <el-tab-pane name="2" label="待收货"></el-tab-pane>
       <el-tab-pane name="3" label="待评价"></el-tab-pane>
@@ -13,7 +19,7 @@
     </el-tabs>
     <div class="acea-row">
       <el-button v-auth="['order-write']" type="primary" v-db-click @click="writeOff">订单核销</el-button>
-      <el-button type="primary" v-db-click @click="batchShipmentModal = true">批量发货</el-button>
+      <el-button v-db-click @click="batchShipmentModal = true">批量发货</el-button>
       <!-- <el-upload class="mr14" :action="expressUrl" :headers="header" :on-success="upExpress">
         <el-button class="export" type="primary">批量发货</el-button>
       </el-upload> -->
@@ -40,8 +46,11 @@
         <template slot-scope="scope">
           <div>{{ scope.row.order_id }}</div>
           <div class="pink_name" :style="{ color: scope.row.color }">{{ scope.row.pink_name }}</div>
-          <span v-show="scope.row.is_del === 1" style="color: #ed4014; display: block">用户已删除</span>
-          <span v-show="scope.row.refund_type === 6" style="color: #ed4014; display: block">订单已退款</span>
+          <span v-if="scope.row.is_del === 1" style="color: #ed4014; display: block">用户已删除</span>
+          <span v-if="scope.row.is_cancel === 1 && scope.row.is_del === 0" style="color: #ed4014; display: block"
+            >用户已取消</span
+          >
+          <span v-if="scope.row.refund_type === 6" style="color: #ed4014; display: block">订单已退款</span>
         </template>
       </el-table-column>
       <el-table-column label="商品信息" min-width="250">
@@ -92,12 +101,12 @@
       </el-table-column>
       <el-table-column label="支付方式" min-width="100">
         <template slot-scope="scope">
-          <span>{{ scope.row.pay_type_name }}</span>
+          <span>{{ scope.row.pay_type_name || '--' }}</span>
         </template>
       </el-table-column>
       <el-table-column label="支付时间" min-width="150">
         <template slot-scope="scope">
-          <span>{{ scope.row._pay_time }}</span>
+          <span>{{ scope.row._pay_time || '--' }}</span>
         </template>
       </el-table-column>
       <el-table-column label="订单状态" min-width="100">
@@ -124,23 +133,41 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="操作" fixed="right" width="130">
+      <el-table-column label="操作" fixed="right" width="170">
         <template slot-scope="scope">
-          <a v-db-click @click="edit(scope.row)" v-if="scope.row._status === 1 && scope.row.is_del !== 1">编辑</a>
+          <a v-db-click @click="changeMenu(scope.row, '2')">详情</a>
+          <el-divider direction="vertical" />
           <a
-            v-db-click @click="sendOrder(scope.row)"
+            v-db-click
+            @click="sendOrder(scope.row)"
             v-if="
               (scope.row.status === 4 || scope.row._status === 2 || scope.row._status === 8) &&
               scope.row.shipping_type === 1 &&
               (scope.row.pinkStatus === null || scope.row.pinkStatus === 2) &&
-              scope.row.is_del !== 1 && 
+              scope.row.is_del !== 1 &&
+              scope.row.is_cancel !== 1 &&
               !scope.row.refund.length
             "
             >发送货</a
           >
-          <a v-db-click @click="delivery(scope.row)" v-if="scope.row._status === 4 && !scope.row.split.length">配送信息</a>
+          <el-divider
+            direction="vertical"
+            v-if="
+              (scope.row.status === 4 || scope.row._status === 2 || scope.row._status === 8) &&
+              scope.row.shipping_type === 1 &&
+              (scope.row.pinkStatus === null || scope.row.pinkStatus === 2) &&
+              scope.row.is_del !== 1 &&
+              scope.row.is_cancel !== 1 &&
+              !scope.row.refund.length
+            "
+          />
+          <a v-db-click @click="delivery(scope.row)" v-if="scope.row._status === 4 && !scope.row.split.length"
+            >配送信息</a
+          >
+          <el-divider direction="vertical" v-if="scope.row._status === 4 && !scope.row.split.length" />
           <a
-            v-db-click @click="bindWrite(scope.row)"
+            v-db-click
+            @click="bindWrite(scope.row)"
             v-if="
               scope.row.shipping_type == 2 &&
               scope.row.status == 0 &&
@@ -152,24 +179,10 @@
           <el-divider
             direction="vertical"
             v-if="
-              (scope.row._status === 2 && scope.row.shipping_type === 1 && scope.row.pinkStatus === 2) ||
-              (scope.row.split.length && scope.row.is_del !== 1 && !scope.row.refund.length)
-            "
-          />
-          <el-divider
-            direction="vertical"
-            v-if="
-              scope.row.refund_type !== 4 &&
-              scope.row.refund_type !== 5 &&
-              (scope.row._status === 1 ||
-                scope.row._status === 3 ||
-                (scope.row._status === 2 && !scope.row.pinkStatus) ||
-                scope.row._status === 4 ||
-                (scope.row.shipping_type == 2 &&
-                  scope.row.status == 0 &&
-                  scope.row.paid == 1 &&
-                  scope.row.refund_status === 0)) &&
-              scope.row.is_del !== 1 && !scope.row.refund.length
+              scope.row.shipping_type == 2 &&
+              scope.row.status == 0 &&
+              scope.row.paid == 1 &&
+              scope.row.refund_status === 0
             "
           />
           <template>
@@ -182,15 +195,17 @@
                     scope.row._status === 1 &&
                     scope.row.paid === 0 &&
                     scope.row.pay_type === 'offline' &&
-                    scope.row.is_del !== 1
+                    scope.row.is_del !== 1 &&
+                    scope.row.is_cancel !== 1
                   "
                   >确认付款</el-dropdown-item
                 >
-                <el-dropdown-item command="2">订单详情</el-dropdown-item>
+                <el-dropdown-item v-show="scope.row._status === 1 && scope.row.is_del !== 1 && scope.row.is_cancel !== 1" command="15">订单编辑</el-dropdown-item>
                 <el-dropdown-item command="11" v-show="scope.row._status >= 3 && scope.row.express_dump"
                   >电子面单打印</el-dropdown-item
                 >
                 <el-dropdown-item command="10" v-show="scope.row._status >= 2">小票打印</el-dropdown-item>
+                <el-dropdown-item command="14" v-show="scope.row.status === 0">修改地址</el-dropdown-item>
                 <el-dropdown-item
                   command="4"
                   v-show="
@@ -201,7 +216,11 @@
                   "
                   >订单备注</el-dropdown-item
                 >
-                <el-dropdown-item command="5" v-show="scope.row.paid == 1 && scope.row.refund_status == 0 && !scope.row.refund.length">立即退款</el-dropdown-item>
+                <el-dropdown-item
+                  command="5"
+                  v-show="scope.row.paid == 1 && scope.row.refund_status == 0 && !scope.row.refund.length"
+                  >立即退款</el-dropdown-item
+                >
                 <!--                            <el-dropdown-item command="6"  v-show='scope.row._status !==1 && (scope.row.use_integral > 0 && scope.row.use_integral >= scope.row.back_integral) '>退积分</el-dropdown-item>-->
                 <!--                            <el-dropdown-item command="7"  v-show='scope.row._status === 3'>不退款</el-dropdown-item>-->
                 <el-dropdown-item command="8" v-show="scope.row._status === 4">已收货</el-dropdown-item>
@@ -319,6 +338,7 @@
         <div class="el-upload__text">批量发货单,拖入上传或<em>点击上传</em></div>
       </el-upload>
     </el-dialog>
+    <orderAddress ref="address" :addressData="addressData" @submitSuccess="submitSuccess"></orderAddress>
   </div>
 </template>
 
@@ -337,6 +357,7 @@ import {
   shipmentCancelOrder,
   putWrite,
   importExpress,
+  editAddress,
 } from '@/api/order';
 import { mapState, mapMutations } from 'vuex';
 import editFrom from '../../../../components/from/from';
@@ -348,10 +369,9 @@ import orderShipment from '../handle/orderShipment';
 import { exportOrderList, exportOrderDeliveryList } from '@api/export';
 import Setting from '@/setting';
 import { getCookies } from '@/libs/util';
-import { serveOpnOtherApi } from '@api/setting';
 import createWorkBook from '@/vendor/newToExcel.js';
 import { isFileUpload } from '@/utils';
-
+import orderAddress from '../handle/orderAddress.vue';
 export default {
   name: 'table_list',
   components: {
@@ -362,6 +382,7 @@ export default {
     orderSend,
     orderShipment,
     orderRefund,
+    orderAddress,
   },
   data() {
     const codeNum = (rule, value, callback) => {
@@ -423,6 +444,7 @@ export default {
         confirm: 0,
       },
       modals2: false,
+      addressData: {},
     };
   },
   computed: {
@@ -435,7 +457,7 @@ export default {
       'orderType',
       'delIdList',
       'isDels',
-      'orderChartType'
+      'orderChartType',
     ]),
   },
   mounted() {},
@@ -463,7 +485,7 @@ export default {
       switch (name) {
         case '1':
           this.delfromData = {
-            title: '修改立即支付',
+            title: '修改订单为已支付',
             url: `/order/pay_offline/${row.id}`,
             method: 'post',
             ids: '',
@@ -566,6 +588,18 @@ export default {
           });
           window.open(pathInfo.href, '_blank');
           break;
+        case '14':
+          this.addressData = {
+            id: row.id,
+            real_name: row.real_name,
+            user_phone: row.user_phone,
+            user_address: row.user_address,
+          };
+          this.$refs.address.modals = true;
+          break;
+        case '15':
+          this.edit(row);
+          break;  
         default:
           this.delfromData = {
             title: '删除订单',
@@ -706,6 +740,13 @@ export default {
         .catch((res) => {
           this.$message.error(res.msg);
         });
+    },
+    submitSuccess() {
+      editAddress(this.addressData).then(() => {
+        this.$message.success('修改成功');
+        this.addressData = {};
+        this.$refs.address.modals = false;
+      });
     },
     // 修改成功
     submitFail() {
@@ -952,8 +993,9 @@ export default {
 };
 </script>
 
-<style scoped lang="stylus">
-::v-deep .el-upload, ::v-deep .el-upload-dragger {
+<style lang="scss" scoped>
+::v-deep .el-upload,
+::v-deep .el-upload-dragger {
   width: 100%;
 }
 

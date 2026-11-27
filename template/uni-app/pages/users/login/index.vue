@@ -2,6 +2,9 @@
 	<view class="login-wrapper" :style="colorStyle">
 		<view class="shading">
 			<image :src="logoUrl" />
+			<view v-if="configData && configData.site_name" class="name">
+				{{ configData.site_name }}
+			</view>
 		</view>
 		<view class="whiteBg" v-if="formItem === 1">
 			<view class="list" v-if="current !== 1">
@@ -111,6 +114,8 @@ import { wechatAppAuth } from '@/api/api.js';
 const BACK_URL = 'login_back_url';
 import colors from '@/mixins/color.js';
 import Verify from '../components/verify/index.vue';
+import Cache from '@/utils/cache';
+
 export default {
 	name: 'Login',
 	components: {
@@ -139,7 +144,9 @@ export default {
 			appleLoginStatus: false, // 苹果登录强制绑定手机号码状态
 			appleUserInfo: null,
 			appleShow: false, // 苹果登录版本必须要求ios13以上的
-			keyLock: true
+			keyLock: true,
+			captchaType: 'clickWord',
+			configData: Cache.get('BASIC_CONFIG')
 		};
 	},
 	watch: {
@@ -446,7 +453,8 @@ export default {
 				loginMobile({
 					phone: that.account,
 					captcha: that.captcha,
-					spread: that.$Cache.get('spread')
+					spread: that.$Cache.get('spread'),
+					agent_id: that.$Cache.get('agent_id') || 0
 				})
 					.then((res) => {
 						let data = res.data;
@@ -595,7 +603,8 @@ export default {
 			loginH5({
 				account: that.account,
 				password: that.password,
-				spread: that.$Cache.get('spread')
+				spread: that.$Cache.get('spread'),
+				agent_id: that.$Cache.get('agent_id') || 0
 			})
 				.then(({ data }) => {
 					that.$store.commit('LOGIN', {
@@ -724,6 +733,7 @@ page {
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		flex-direction: column;
 		width: 100%;
 
 		/* #ifdef APP-VUE */
@@ -737,6 +747,12 @@ page {
 		image {
 			width: 240rpx;
 			height: 240rpx;
+		}
+		.name {
+			font-size: 40rpx;
+			font-weight: 500;
+			color: #333333;
+			margin-top: 22rpx;
 		}
 	}
 

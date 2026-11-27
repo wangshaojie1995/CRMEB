@@ -1,6 +1,13 @@
 <?php
-
-
+// +----------------------------------------------------------------------
+// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
+// +----------------------------------------------------------------------
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
+// +----------------------------------------------------------------------
+// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
+// +----------------------------------------------------------------------
+// | Author: CRMEB Team <admin@crmeb.com>
+// +----------------------------------------------------------------------
 namespace app\listener\user;
 
 
@@ -50,8 +57,8 @@ class RegisterListener implements ListenerInterface
 
             //自定义消息-下级用户绑定成功
             if ($res) {
-                $phone = app()->make(UserServices::class)->value($uid, 'phone');
-                event('CustomNoticeListener', [$uid, ['nickname' => $name, 'time' => date('Y-m-d H:i:s'), 'phone' => $phone], 'spread_success']);
+                $phone = app()->make(UserServices::class)->value($spreadUid, 'phone');
+                event('CustomNoticeListener', [$spreadUid, ['nickname' => $name, 'time' => date('Y-m-d H:i:s'), 'phone' => $phone], 'spread_success']);
             }
         }
 

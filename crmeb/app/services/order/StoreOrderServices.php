@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -14,9 +14,11 @@ namespace app\services\order;
 use app\dao\order\StoreOrderDao;
 use app\jobs\AutoCommentJob;
 use app\services\activity\combination\StorePinkServices;
+use app\services\activity\coupon\StoreCouponUserServices;
 use app\services\activity\seckill\StoreSeckillServices;
 use app\services\BaseServices;
 use app\services\other\PosterServices;
+use app\services\other\QrcodeServices;
 use app\services\other\UploadService;
 use app\services\pay\OrderPayServices;
 use app\services\pay\PayServices;
@@ -24,6 +26,7 @@ use app\services\product\product\StoreProductLogServices;
 use app\services\serve\ServeServices;
 use app\services\system\attachment\SystemAttachmentServices;
 use app\services\system\store\SystemStoreServices;
+use app\services\system\SystemTicketServices;
 use app\services\user\UserInvoiceServices;
 use app\services\user\UserRechargeServices;
 use app\services\user\UserServices;
@@ -106,7 +109,7 @@ class StoreOrderServices extends BaseServices
             $vipTruePrice = 0;
             foreach ($item['_info'] as $items) {
                 $cart_num += $items['cart_info']['cart_num'];
-                $vipTruePrice = bcadd((string)$vipTruePrice, (string)$items['cart_info']['vip_truePrice'], 2);
+                $vipTruePrice = bcadd((string)$vipTruePrice, bcmul((string)$items['cart_info']['vip_truePrice'], (string)$items['cart_info']['cart_num'], 2), 2);
             }
             $item['total_price'] = bcadd($item['total_price'], $vipTruePrice, 2);
             $item['is_all_refund'] = $refund_num == $cart_num;
@@ -229,161 +232,173 @@ class StoreOrderServices extends BaseServices
         /** @var StoreOrderStatusServices $statusServices */
         $statusServices = app()->make(StoreOrderStatusServices::class);
         $status = [];
-        if (!$order['paid'] && $order['pay_type'] == 'offline' && !$order['status'] >= 2) {
-            $status['_type'] = 9;
-            $status['_title'] = '线下付款,未支付';
-            $status['_msg'] = '等待商家处理,请耐心等待';
-            $status['_class'] = 'nobuy';
-        } else if (!$order['paid']) {
-            $status['_type'] = 0;
-            $status['_title'] = '未支付';
-            //系统预设取消订单时间段
-            $keyValue = ['order_cancel_time', 'order_activity_time', 'order_bargain_time', 'order_seckill_time', 'order_pink_time'];
-            //获取配置
-            $systemValue = SystemConfigService::more($keyValue);
-            //格式化数据
-            $systemValue = Arr::setValeTime($keyValue, is_array($systemValue) ? $systemValue : []);
-            if ($order['pink_id'] || $order['combination_id']) {
-                $order_pink_time = $systemValue['order_pink_time'] ?: $systemValue['order_activity_time'];
-                $time = $order['add_time'] + $order_pink_time * 3600;
-                $status['_msg'] = '请在' . date('m-d H:i:s', $time) . '前完成支付!';
-            } else if ($order['seckill_id']) {
-                $order_seckill_time = $systemValue['order_seckill_time'] ?: $systemValue['order_activity_time'];
-                $time = $order['add_time'] + $order_seckill_time * 3600;
-                $status['_msg'] = '请在' . date('m-d H:i:s', $time) . '前完成支付!';
-            } else if ($order['bargain_id']) {
-                $order_bargain_time = $systemValue['order_bargain_time'] ?: $systemValue['order_activity_time'];
-                $time = $order['add_time'] + $order_bargain_time * 3600;
-                $status['_msg'] = '请在' . date('m-d H:i:s', $time) . '前完成支付!';
-            } else {
-                $time = $order['add_time'] + $systemValue['order_cancel_time'] * 3600;
-                $status['_msg'] = '请在' . date('m-d H:i:s', (int)$time) . '前完成支付!';
-            }
-            $status['_class'] = 'nobuy';
-        } else if ($order['status'] == 4) {
-            if ($order['delivery_type'] == 'send') {//TODO 送货
-                $status['_type'] = 1;
-                $status['_title'] = '待收货';
-                $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery'], 'change_time')) . '服务商已送货';
-                $status['_class'] = 'state-ysh';
-            } elseif ($order['delivery_type'] == 'express') {//TODO  发货
-                $status['_type'] = 1;
-                $status['_title'] = '待收货';
-                $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_goods'], 'change_time')) . '服务商已发货';
-                $status['_class'] = 'state-ysh';
-            } elseif ($order['delivery_type'] == 'split') {//拆分发货
-                $status['_type'] = 1;
-                $status['_title'] = '待收货';
-                $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_part_split'], 'change_time')) . '服务商已拆分多个包裹发货';
-                $status['_class'] = 'state-ysh';
-            } else {
-                $status['_type'] = 1;
-                $status['_title'] = '待收货';
-                $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_fictitious'], 'change_time')) . '服务商已虚拟发货';
-                $status['_class'] = 'state-ysh';
-            }
-        } else if ($order['refund_status'] == 1) {
-            if (in_array($order['refund_type'], [0, 1, 2])) {
-                $status['_type'] = -1;
-                $status['_title'] = '申请退款中';
-                $status['_msg'] = '商家审核中,请耐心等待';
-                $status['_class'] = 'state-sqtk';
-            } elseif ($order['refund_type'] == 4) {
-                $status['_type'] = -1;
-                $status['_title'] = '申请退款中';
-                $status['_msg'] = '商家同意退款,请填写退货订单号';
-                $status['_class'] = 'state-sqtk';
-                $status['refund_name'] = sys_config('refund_name', '');
-                $status['refund_phone'] = sys_config('refund_phone', '');
-                $status['refund_address'] = sys_config('refund_address', '');
-            } elseif ($order['refund_type'] == 5) {
-                $status['_type'] = -1;
-                $status['_title'] = '申请退款中';
-                $status['_msg'] = '等待商家收货';
-                $status['_class'] = 'state-sqtk';
-                $status['refund_name'] = sys_config('refund_name', '');
-                $status['refund_phone'] = sys_config('refund_phone', '');
-                $status['refund_address'] = sys_config('refund_address', '');
-            }
-        } else if ($order['refund_status'] == 2 || $order['refund_type'] == 6) {
-            $status['_type'] = -2;
-            $status['_title'] = '已退款';
-            $status['_msg'] = '已为您退款,感谢您的支持';
-            $status['_class'] = 'state-sqtk';
-        } else if ($order['refund_status'] == 3) {
-            $status['_type'] = -1;
-            $status['_title'] = '部分退款（子订单）';
-            $status['_msg'] = '拆分发货，部分退款';
-            $status['_class'] = 'state-sqtk';
-        } else if ($order['refund_status'] == 4) {
-            $status['_type'] = -1;
-            $status['_title'] = '子订单已全部申请退款中';
-            $status['_msg'] = '拆分发货，全部退款';
-            $status['_class'] = 'state-sqtk';
-        } else if (!$order['status']) {
-            if ($order['pink_id']) {
-                /** @var StorePinkServices $pinkServices */
-                $pinkServices = app()->make(StorePinkServices::class);
-                if ($pinkServices->getCount(['id' => $order['pink_id'], 'status' => 1])) {
-                    $status['_type'] = 1;
-                    $status['_title'] = '拼团中';
-                    $status['_msg'] = '等待其他人参加拼团';
-                    $status['_class'] = 'state-nfh';
-                } else {
-                    $status['_type'] = 1;
-                    $status['_title'] = '未发货';
-                    $status['_msg'] = '商家未发货,请耐心等待';
-                    $status['_class'] = 'state-nfh';
-                }
-            } else {
-                if ($order['shipping_type'] === 1) {
-                    $status['_type'] = 1;
-                    $status['_title'] = '未发货';
-                    if ($order['advance_id']) {
-                        $status['_msg'] = date('Y-m-d', $order['cartInfo'][0]['productInfo']['presale_end_time']) . '预售结束后' . $order['cartInfo'][0]['productInfo']['presale_day'] . '天内发货,请耐心等待';
-                    } else {
-                        $status['_msg'] = '商家未发货,请耐心等待';
-                    }
-                    $status['_class'] = 'state-nfh';
-                } else {
-                    $status['_type'] = 1;
-                    $status['_title'] = '待核销';
-                    $status['_msg'] = '待核销,请到核销点进行核销';
-                    $status['_class'] = 'state-nfh';
-                }
-            }
-        } else if ($order['status'] == 1) {
-            if ($order['delivery_type'] == 'send') {//TODO 送货
-                $status['_type'] = 2;
-                $status['_title'] = '待收货';
-                $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery'], 'change_time')) . '服务商已送货';
-                $status['_class'] = 'state-ysh';
-            } elseif ($order['delivery_type'] == 'express') {//TODO  发货
-                $status['_type'] = 2;
-                $status['_title'] = '待收货';
-                $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_goods'], 'change_time')) . '服务商已发货';
-                $status['_class'] = 'state-ysh';
-            } elseif ($order['delivery_type'] == 'split') {//拆分发货
-                $status['_type'] = 2;
-                $status['_title'] = '待收货';
-                $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_split'], 'change_time')) . '服务商已拆分多个包裹发货';
-                $status['_class'] = 'state-ysh';
-            } else {
-                $status['_type'] = 2;
-                $status['_title'] = '待收货';
-                $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_fictitious'], 'change_time')) . '服务商已虚拟发货';
-                $status['_class'] = 'state-ysh';
-            }
-        } else if ($order['status'] == 2) {
-            $status['_type'] = 3;
-            $status['_title'] = '待评价';
-            $status['_msg'] = '已收货,快去评价一下吧';
-            $status['_class'] = 'state-ypj';
-        } else if ($order['status'] == 3) {
+        if ($order['is_cancel']) {
             $status['_type'] = 4;
-            $status['_title'] = '交易完成';
-            $status['_msg'] = '交易完成,感谢您的支持';
-            $status['_class'] = 'state-ytk';
+            $status['_title'] = '已取消';
+            $status['_msg'] = '您已取消订单,感谢您的使用';
+            $status['_class'] = 'nobuy';
+        } else {
+            if (!$order['paid'] && $order['pay_type'] == 'offline' && !$order['status'] >= 2) {
+                $status['_type'] = 9;
+                $status['_title'] = '线下付款,未支付';
+                $status['_msg'] = '等待商家处理,请耐心等待';
+                $status['_class'] = 'nobuy';
+            } else if (!$order['paid']) {
+                $status['_type'] = 0;
+                $status['_title'] = '未支付';
+                //系统预设取消订单时间段
+                $keyValue = ['order_cancel_time', 'order_activity_time', 'order_bargain_time', 'order_seckill_time', 'order_pink_time'];
+                //获取配置
+                $systemValue = SystemConfigService::more($keyValue);
+                //格式化数据
+                $systemValue = Arr::setValeTime($keyValue, is_array($systemValue) ? $systemValue : []);
+                if ($order['pink_id'] || $order['combination_id']) {
+                    $order_pink_time = $systemValue['order_pink_time'] ?: $systemValue['order_activity_time'];
+                    $time = $order['add_time'] + $order_pink_time * 3600;
+                    $status['_msg'] = '请在' . date('m-d H:i:s', $time) . '前完成支付!';
+                } else if ($order['seckill_id']) {
+                    $order_seckill_time = $systemValue['order_seckill_time'] ?: $systemValue['order_activity_time'];
+                    $time = $order['add_time'] + $order_seckill_time * 3600;
+                    $status['_msg'] = '请在' . date('m-d H:i:s', $time) . '前完成支付!';
+                } else if ($order['bargain_id']) {
+                    $order_bargain_time = $systemValue['order_bargain_time'] ?: $systemValue['order_activity_time'];
+                    $time = $order['add_time'] + $order_bargain_time * 3600;
+                    $status['_msg'] = '请在' . date('m-d H:i:s', $time) . '前完成支付!';
+                } else {
+                    $time = $order['add_time'] + $systemValue['order_cancel_time'] * 3600;
+                    $status['_msg'] = '请在' . date('m-d H:i:s', (int)$time) . '前完成支付!';
+                }
+                $status['_class'] = 'nobuy';
+            } else if ($order['status'] == 4) {
+                if ($order['delivery_type'] == 'send') {//TODO 送货
+                    $status['_type'] = 1;
+                    $status['_title'] = '待收货';
+                    $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery'], 'change_time')) . '服务商已送货';
+                    $status['_class'] = 'state-ysh';
+                } elseif ($order['delivery_type'] == 'express') {//TODO  发货
+                    $status['_type'] = 1;
+                    $status['_title'] = '待收货';
+                    $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_goods'], 'change_time')) . '服务商已发货';
+                    $status['_class'] = 'state-ysh';
+                } elseif ($order['delivery_type'] == 'split') {//拆分发货
+                    $status['_type'] = 1;
+                    $status['_title'] = '待收货';
+                    $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_part_split'], 'change_time')) . '服务商已拆分多个包裹发货';
+                    $status['_class'] = 'state-ysh';
+                } else {
+                    $status['_type'] = 1;
+                    $status['_title'] = '待收货';
+                    $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_fictitious'], 'change_time')) . '服务商已虚拟发货';
+                    $status['_class'] = 'state-ysh';
+                }
+            } else if ($order['refund_status'] == 1) {
+                if (in_array($order['refund_type'], [0, 1, 2])) {
+                    $status['_type'] = -1;
+                    $status['_title'] = '申请退款中';
+                    $status['_msg'] = '商家审核中,请耐心等待';
+                    $status['_class'] = 'state-sqtk';
+                } elseif ($order['refund_type'] == 4) {
+                    $status['_type'] = -1;
+                    $status['_title'] = '申请退款中';
+                    $status['_msg'] = '商家同意退款,请填写退货订单号';
+                    $status['_class'] = 'state-sqtk';
+                    $status['refund_name'] = sys_config('refund_name', '');
+                    $status['refund_phone'] = sys_config('refund_phone', '');
+                    $status['refund_address'] = sys_config('refund_address', '');
+                } elseif ($order['refund_type'] == 5) {
+                    $status['_type'] = -1;
+                    $status['_title'] = '申请退款中';
+                    $status['_msg'] = '等待商家收货';
+                    $status['_class'] = 'state-sqtk';
+                    $status['refund_name'] = sys_config('refund_name', '');
+                    $status['refund_phone'] = sys_config('refund_phone', '');
+                    $status['refund_address'] = sys_config('refund_address', '');
+                }
+            } else if ($order['refund_status'] == 2 || $order['refund_type'] == 6) {
+                $status['_type'] = -2;
+                $status['_title'] = '已退款';
+                $status['_msg'] = '已为您退款,感谢您的支持';
+                $status['_class'] = 'state-sqtk';
+            } else if ($order['refund_status'] == 3) {
+                $status['_type'] = -1;
+                $status['_title'] = '部分退款（子订单）';
+                $status['_msg'] = '拆分发货，部分退款';
+                $status['_class'] = 'state-sqtk';
+            } else if ($order['refund_status'] == 4) {
+                $status['_type'] = -1;
+                $status['_title'] = '子订单已全部申请退款中';
+                $status['_msg'] = '拆分发货，全部退款';
+                $status['_class'] = 'state-sqtk';
+            } else if (!$order['status']) {
+                if ($order['pink_id']) {
+                    /** @var StorePinkServices $pinkServices */
+                    $pinkServices = app()->make(StorePinkServices::class);
+                    if ($pinkServices->getCount(['id' => $order['pink_id'], 'status' => 1])) {
+                        $status['_type'] = 1;
+                        $status['_title'] = '拼团中';
+                        $status['_msg'] = '等待其他人参加拼团';
+                        $status['_class'] = 'state-nfh';
+                    } else {
+                        $status['_type'] = 1;
+                        $status['_title'] = '未发货';
+                        $status['_msg'] = '商家未发货,请耐心等待';
+                        $status['_class'] = 'state-nfh';
+                    }
+                } else {
+                    if ($order['shipping_type'] === 1) {
+                        $status['_type'] = 1;
+                        $status['_title'] = '未发货';
+                        if ($order['advance_id']) {
+                            $status['_msg'] = date('Y-m-d', $order['cartInfo'][0]['productInfo']['presale_end_time']) . '预售结束后' . $order['cartInfo'][0]['productInfo']['presale_day'] . '天内发货,请耐心等待';
+                        } else {
+                            $status['_msg'] = '商家未发货,请耐心等待';
+                        }
+                        $status['_class'] = 'state-nfh';
+                    } elseif ($order['shipping_type'] === 2) {
+                        $status['_type'] = 1;
+                        $status['_title'] = '待核销';
+                        $status['_msg'] = '待核销,请到核销点进行核销';
+                        $status['_class'] = 'state-nfh';
+                    } else {
+                        $status['_type'] = 1;
+                        $status['_title'] = '待领取';
+                        $status['_msg'] = '待领取，将礼品转赠给好友吧!';
+                        $status['_class'] = 'state-nfh';
+                    }
+                }
+            } else if ($order['status'] == 1) {
+                if ($order['delivery_type'] == 'send') {//TODO 送货
+                    $status['_type'] = 2;
+                    $status['_title'] = '待收货';
+                    $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery'], 'change_time')) . '服务商已送货';
+                    $status['_class'] = 'state-ysh';
+                } elseif ($order['delivery_type'] == 'express') {//TODO  发货
+                    $status['_type'] = 2;
+                    $status['_title'] = '待收货';
+                    $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_goods'], 'change_time')) . '服务商已发货';
+                    $status['_class'] = 'state-ysh';
+                } elseif ($order['delivery_type'] == 'split') {//拆分发货
+                    $status['_type'] = 2;
+                    $status['_title'] = '待收货';
+                    $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_split'], 'change_time')) . '服务商已拆分多个包裹发货';
+                    $status['_class'] = 'state-ysh';
+                } else {
+                    $status['_type'] = 2;
+                    $status['_title'] = '待收货';
+                    $status['_msg'] = date('m月d日H时i分', $statusServices->value(['oid' => $order['id'], 'change_type' => 'delivery_fictitious'], 'change_time')) . '服务商已虚拟发货';
+                    $status['_class'] = 'state-ysh';
+                }
+            } else if ($order['status'] == 2) {
+                $status['_type'] = 3;
+                $status['_title'] = '待评价';
+                $status['_msg'] = '已收货,快去评价一下吧';
+                $status['_class'] = 'state-ypj';
+            } else if ($order['status'] == 3) {
+                $status['_type'] = 4;
+                $status['_title'] = '交易完成';
+                $status['_msg'] = '交易完成,感谢您的支持';
+                $status['_class'] = 'state-ytk';
+            }
         }
         if (isset($order['pay_type']))
             $status['_payType'] = $status['_type'] == 0 ? '' : PayServices::PAY_TYPE[$order['pay_type']] ?? '其他方式';
@@ -444,6 +459,22 @@ class StoreOrderServices extends BaseServices
             'take' => isset($log['take_delivery']) ? date('Y-m-d', $log['take_delivery']) : '',
             'complete' => isset($log['check_order_over']) ? date('Y-m-d', $log['check_order_over']) : '',
         ];
+
+        $order['gift_user_info'] = [
+            'gift_uid' => $order['gift_uid'],
+            'gift_nickname' => '',
+            'gift_avatar' => '',
+        ];
+        if ($order['gift_uid'] != 0) {
+            /** @var UserServices $userServices */
+            $userServices = app()->make(UserServices::class);
+            $giftUser = $userServices->get($order['gift_uid'], ['nickname', 'avatar']);
+            $order['gift_user_info'] = [
+                'gift_uid' => $order['gift_uid'],
+                'gift_nickname' => $giftUser['nickname'],
+                'gift_avatar' => $giftUser['avatar'],
+            ];
+        }
         return $order;
     }
 
@@ -535,7 +566,7 @@ class StoreOrderServices extends BaseServices
             }
             $status_name = ['status_name' => '', 'pics' => []];
             if ($item['paid'] == 0 && $item['status'] == 0) {
-                $status_name['status_name'] = '未支付';
+                $status_name['status_name'] = $item['is_cancel'] == 0 ? '未支付' : '已取消';
             } else if ($item['paid'] == 1 && $item['status'] == 0 && $item['shipping_type'] == 1 && $item['refund_status'] == 0) {
                 $status_name['status_name'] = $item['combination_id'] && isset($item['pinkStatus']) && $item['pinkStatus'] == 1 ? '未发货(拼团中)' : '未发货';
             } else if ($item['paid'] == 1 && $item['status'] == 4 && $item['shipping_type'] == 1 && $item['refund_status'] == 0) {
@@ -601,6 +632,13 @@ HTML;
             if ($item['clerk_id'] == 0 && !isset($item['clerk_name'])) {
                 $item['clerk_name'] = '总平台';
             }
+
+            if ($item['store_id']) {
+                $store = app()->make(SystemStoreServices::class);
+                $storeOne = $store->value(['id' => $item['store_id']], 'name');
+                if ($storeOne) $item['store_name'] = $storeOne;
+            }
+
             //根据核销员更改store_name
             if ($item['clerk_id'] && isset($item['staff_store_id']) && $item['staff_store_id']) {
                 /** @var SystemStoreServices $store */
@@ -747,7 +785,7 @@ HTML;
         $where['is_system_del'] = 0;
         $where['pid'] = 0;
         $data['un_paid'] = $this->dao->count($where + ['status' => 0], false);
-        $data['un_send'] = $this->dao->count($where + ['status' => 1], false);
+        $data['un_send'] = $this->dao->count($where + ['status' => 1, 'shipping_type' => 1], false);
         return $data;
     }
 
@@ -761,7 +799,7 @@ HTML;
     {
         $product = $this->dao->get($id);
         if (!$product) {
-            throw new AdminException(100026);
+            throw new AdminException('数据不存在');
         }
         $f = [];
         $f[] = Form::input('order_id', '订单编号', $product->getData('order_id'))->disabled(true);
@@ -783,7 +821,7 @@ HTML;
     {
         $order = $this->dao->getOne(['id' => $id, 'is_del' => 0]);
         if (!$order) {
-            throw new AdminException(400118);
+            throw new AdminException('订单不存在');
         }
         /** @var StoreOrderCreateServices $createServices */
         $createServices = app()->make(StoreOrderCreateServices::class);
@@ -837,13 +875,13 @@ HTML;
                     'uid' => $order['uid'],
                     'order_id' => $data['order_id'],
                     'pay_price' => $data['pay_price'],
-                    'gain_integral' => $data['gain_integral'],
+                    'gain_integral' => $data['gain_integral'] ?? $order['gain_integral'],
                     'change_time' => date('Y-m-d H:i:s'),
                 ]]);
 
                 return $data['order_id'];
             } else {
-                throw new AdminException(100007);
+                throw new AdminException('修改失败');
             }
         });
     }
@@ -1575,55 +1613,63 @@ HTML;
      * @throws \think\db\exception\ModelNotFoundException
      * @throws \Exception
      */
-    public function orderPrintTicket(int $id)
+    public function orderPrintTicket(int $id, $print_type)
     {
         $order = $this->get($id);
         if (!$order) {
-            throw new AdminException(400118);
+            throw new AdminException('订单不存在');
         }
         /** @var StoreOrderCartInfoServices $cartServices */
         $cartServices = app()->make(StoreOrderCartInfoServices::class);
         $product = $cartServices->getCartInfoPrintProduct($order['id']);
         if (!$product) {
-            throw new AdminException(400463);
+            throw new AdminException('订单商品获取失败,无法打印');
         }
-        $switch = (bool)sys_config('pay_success_printing_switch');
-        if (!$switch) {
-            throw new AdminException(400464);
-        }
-        if (sys_config('print_type', 1) == 1) {
-            $name = 'yi_lian_yun';
-            $configData = [
-                'clientId' => sys_config('printing_client_id', ''),
-                'apiKey' => sys_config('printing_api_key', ''),
-                'partner' => sys_config('develop_id', ''),
-                'terminal' => sys_config('terminal_number', '')
-            ];
-            if (!$configData['clientId'] || !$configData['apiKey'] || !$configData['partner'] || !$configData['terminal']) {
-                throw new AdminException(400465);
-            }
-        } else {
-            $name = 'fei_e_yun';
-            $configData = [
-                'feyUser' => sys_config('fey_user', ''),
-                'feyUkey' => sys_config('fey_ukey', ''),
-                'feySn' => sys_config('fey_sn', '')
-            ];
-            if (!$configData['feyUser'] || !$configData['feyUkey'] || !$configData['feySn']) {
-                throw new AdminException(400465);
-            }
-        }
-        $printer = new Printer($name, $configData);
-        $res = $printer->setPrinterContent([
-            'name' => sys_config('site_name'),
-            'url' => sys_config('site_url'),
-            'orderInfo' => is_object($order) ? $order->toArray() : $order,
-            'product' => $product
-        ])->startPrinter();
-        if (!$res) {
-            throw new AdminException($printer->getError());
-        }
+//        $switch = (bool)sys_config('pay_success_printing_switch');
+//        if (!$switch) {
+//            throw new AdminException('小票打印未开启');
+//        }
+
+        app()->make(SystemTicketServices::class)->startPrint(
+            is_object($order) ? $order->toArray() : $order,
+            $product,
+            $print_type
+        );
         return true;
+
+//        if (sys_config('print_type', 1) == 1) {
+//            $name = 'yi_lian_yun';
+//            $configData = [
+//                'clientId' => sys_config('printing_client_id', ''),
+//                'apiKey' => sys_config('printing_api_key', ''),
+//                'partner' => sys_config('develop_id', ''),
+//                'terminal' => sys_config('terminal_number', '')
+//            ];
+//            if (!$configData['clientId'] || !$configData['apiKey'] || !$configData['partner'] || !$configData['terminal']) {
+//                throw new AdminException('请先配置小票打印开发者');
+//            }
+//        } else {
+//            $name = 'fei_e_yun';
+//            $configData = [
+//                'feyUser' => sys_config('fey_user', ''),
+//                'feyUkey' => sys_config('fey_ukey', ''),
+//                'feySn' => sys_config('fey_sn', '')
+//            ];
+//            if (!$configData['feyUser'] || !$configData['feyUkey'] || !$configData['feySn']) {
+//                throw new AdminException('请先配置小票打印开发者');
+//            }
+//        }
+//        $printer = new Printer($name, $configData);
+//        $res = $printer->setPrinterContent([
+//            'name' => sys_config('site_name'),
+//            'url' => sys_config('site_url'),
+//            'orderInfo' => is_object($order) ? $order->toArray() : $order,
+//            'product' => $product
+//        ])->startPrinter();
+//        if (!$res) {
+//            throw new AdminException($printer->getError());
+//        }
+//        return true;
     }
 
     /**
@@ -1639,7 +1685,7 @@ HTML;
      * @throws \think\db\exception\DbException
      * @throws \think\db\exception\ModelNotFoundException
      */
-    public function getOrderConfirmData(array $user, $cartId, bool $new, int $addressId, int $shipping_type = 1)
+    public function getOrderConfirmData(array $user, $cartId, bool $new, int $addressId, int $shipping_type = 1, int $is_gift = 0)
     {
         $addr = [];
         /** @var UserAddressServices $addressServices */
@@ -1657,15 +1703,19 @@ HTML;
             $addr = [];
         }
         if ($shipping_type == 2) $addr = [];
+        if ($is_gift == 1) {
+            $addr = [];
+            $shipping_type = 0;
+        }
         /** @var StoreCartServices $cartServices */
         $cartServices = app()->make(StoreCartServices::class);
-        $cartGroup = $cartServices->getUserProductCartListV1($user['uid'], $cartId, $new, $addr, $shipping_type);
+        $cartGroup = $cartServices->getUserProductCartListV1($user['uid'], $cartId, $new, $addr, $shipping_type, $is_gift);
         $data = [];
         $data['storeFreePostage'] = $storeFreePostage = floatval(sys_config('store_free_postage')) ?: 0;//满额包邮金额
         $validCartInfo = $cartGroup['valid'];
         /** @var StoreOrderComputedServices $computedServices */
         $computedServices = app()->make(StoreOrderComputedServices::class);
-        $priceGroup = $computedServices->getOrderPriceGroup($storeFreePostage, $validCartInfo, $addr, $user, $shipping_type);
+        $priceGroup = $computedServices->getOrderPriceGroup($storeFreePostage, $validCartInfo, $addr, $user, $shipping_type, $is_gift);
         $validCartInfo = $priceGroup['cartInfo'] ?? $validCartInfo;
         $other = [
             'offlinePostage' => sys_config('offline_postage'),
@@ -1692,6 +1742,7 @@ HTML;
         $data['advance_id'] = $advance_id;
         $data['cartInfo'] = $cartGroup['cartInfo'];
         $data['custom_form'] = json_decode($cartGroup['cartInfo'][0]['productInfo']['custom_form'], true) ?? [];
+        if (!is_array($data['custom_form'])) $data['custom_form'] = [];
         $data['priceGroup'] = $priceGroup;
         $data['orderKey'] = $this->cacheOrderInfo($user['uid'], $validCartInfo, $priceGroup, $other);
         $data['offlinePostage'] = $other['offlinePostage'];
@@ -1728,6 +1779,9 @@ HTML;
         $userBillServices = app()->make(UserBillServices::class);
         $data['usable_integral'] = bcsub((string)$user['integral'], (string)$userBillServices->getBillSum(['uid' => $user['uid'], 'is_frozen' => 1]), 0);
         $data['integral_open'] = sys_config('integral_ratio', 0) > 0;
+
+        //自动领取优惠券
+        app()->make(StoreCouponUserServices::class)->autoReceiveCoupon($user['uid'], $cartGroup);
         return $data;
     }
 
@@ -1880,11 +1934,11 @@ HTML;
     {
         $order = $this->getUserOrderDetail($uni, $uid);
         if (!$order) {
-            throw new ApiException(410173);
+            throw new ApiException('订单不存在');
         }
         $order = $this->tidyOrder($order);
         if ($order['_status']['_type'] != 0 && $order['_status']['_type'] != -2 && $order['_status']['_type'] != 4)
-            throw new ApiException(410256);
+            throw new ApiException('该订单无法删除');
 
         $order->is_del = 1;
         /** @var StoreOrderStatusServices $statusService */
@@ -1898,7 +1952,7 @@ HTML;
         if ($order->save() && $res) {
             return true;
         } else
-            throw new ApiException(100020);
+            throw new ApiException('取消失败');
     }
 
     /**
@@ -1914,22 +1968,22 @@ HTML;
     {
         $order = $this->dao->getOne(['order_id' => $order_id, 'uid' => $uid, 'is_del' => 0]);
         if (!$order) {
-            throw new ApiException(410173);
+            throw new ApiException('订单不存在');
+        }
+        if ($order->is_cancel == 1) {
+            throw new ApiException('订单已取消，请勿重复操作！');
         }
         if ($order->paid) {
-            throw new ApiException(410257);
+            throw new ApiException('订单已经支付无法取消');
         }
-        /** @var StoreOrderCartInfoServices $cartServices */
-        $cartServices = app()->make(StoreOrderCartInfoServices::class);
-        $cartInfo = $cartServices->getOrderCartInfo($order['id']);
         /** @var StoreOrderRefundServices $refundServices */
         $refundServices = app()->make(StoreOrderRefundServices::class);
 
         $this->transaction(function () use ($refundServices, $order) {
             $res = $refundServices->integralAndCouponBack($order, 'cancel') && $refundServices->regressionStock($order);
-            $order->is_del = 1;
+            $order->is_cancel = 1;
             if (!($res && $order->save())) {
-                throw new ApiException(100020);
+                throw new ApiException('取消失败');
             }
         });
 
@@ -1962,9 +2016,9 @@ HTML;
     {
         //订单商品全部评价完成
         $replyServices->count(['unique' => $uniqueList, 'oid' => $oid]);
-        if ($replyServices->count(['unique' => $uniqueList, 'oid' => $oid]) == count($uniqueList)) {
-            $res = $this->dao->update($oid, ['status' => '3']);
-            if (!$res) throw new ApiException(100007);
+        if ($replyServices->count(['unique' => $uniqueList, 'oid' => $oid]) >= count($uniqueList)) {
+            $res = $this->dao->update(['id' => $oid, 'status' => 2], ['status' => 3]);
+            if (!$res) throw new ApiException('修改失败');
             /** @var StoreOrderStatusServices $statusService */
             $statusService = app()->make(StoreOrderStatusServices::class);
             $statusService->save([
@@ -2005,7 +2059,7 @@ HTML;
         $userServices = app()->make(UserServices::class);
         $user = $userServices->getUserInfo($uid, 'uid');
         if (!$user) {
-            throw new AdminException(100026);
+            throw new AdminException('数据不存在');
         }
         [$page, $limit] = $this->getPageValue();
         $where = ['uid' => $uid, 'paid' => 1, 'refund_status' => 0, 'pid' => 0];
@@ -2055,6 +2109,7 @@ HTML;
         //推广订单只显示支付过并且未退款的订单
         $where_data['paid'] = 1;
         $where_data['refund_status'] = 0;
+        $where_data['pid'] = 0;
         [$page, $limit] = $this->getPageValue();
         $list = $this->dao->getStairOrderList($where_data, '*', $page, $limit);
         $count = $this->dao->count($where_data);
@@ -2164,7 +2219,7 @@ HTML;
                         //回退库存和销量
                         $res = $res && $refundServices->regressionStock($order);
                         //修改订单状态
-                        $res = $res && $this->dao->update($order['id'], ['is_del' => 1, 'mark' => '订单未支付已超过系统预设时间']);
+                        $res = $res && $this->dao->update($order['id'], ['is_cancel' => 1, 'mark' => '订单未支付已超过系统预设时间']);
                         if (!$res) {
                             Log::error('订单号' . $order['order_id'] . '自动取消订单失败');
                         }
@@ -2276,7 +2331,7 @@ HTML;
             'change_time' => time()
         ]);
         if ($res) return true;
-        throw new AdminException(100005);
+        throw new AdminException('操作失败');
     }
 
     /**
@@ -2315,7 +2370,7 @@ HTML;
         if ($orderInfo) {
             $orderInfo = $orderInfo->toArray();
         } else {
-            throw new ApiException(410173);
+            throw new ApiException('订单不存在');
         }
         $orderInfo = $this->tidyOrder($orderInfo, true);
         /** @var UserServices $userServices */
@@ -2353,7 +2408,7 @@ HTML;
     {
         $orderInfo = $this->dao->get($id);
         if (!$orderInfo) {
-            throw new ApiException(410173);
+            throw new ApiException('订单不存在');
         }
         $orderInfo = $this->tidyOrder($orderInfo, true);
         $cartInfo = $orderInfo['cartInfo'] ?? [];
@@ -2361,7 +2416,7 @@ HTML;
         if ($cart_ids) {
             foreach ($cart_ids as $cart) {
                 if (!isset($cart['cart_id']) || !$cart['cart_id'] || !isset($cart['cart_num']) || !$cart['cart_num'] || $cart['cart_num'] <= 0) {
-                    throw new ApiException(410223);
+                    throw new ApiException('请重新选择退款商品或件数');
                 }
             }
             $cart_ids = array_combine(array_column($cart_ids, 'cart_id'), $cart_ids);
@@ -2388,20 +2443,20 @@ HTML;
      */
     public function againOrder(StoreCartServices $services, string $uni, int $uid): array
     {
-        if (!$uni) throw new ApiException(100100);
+        if (!$uni) throw new ApiException('参数错误');
         $order = $this->getUserOrderDetail($uni, $uid);
-        if (!$order) throw new ApiException(410173);
+        if (!$order) throw new ApiException('订单不存在');
         $order = $this->tidyOrder($order, true);
         $cateId = [];
 
         foreach ($order['cartInfo'] as $v) {
-            if ($v['combination_id']) throw new ApiException(410258);
-            elseif ($v['bargain_id']) throw new ApiException(410259);
-            elseif ($v['seckill_id']) throw new ApiException(410260);
-            elseif ($v['advance_id']) throw new ApiException(410261);
+            if ($v['combination_id']) throw new ApiException('拼团商品不能再来一单，请在拼团商品内自行下单');
+            elseif ($v['bargain_id']) throw new ApiException('砍价商品不能再来一单，请在砍价商品内自行下单');
+            elseif ($v['seckill_id']) throw new ApiException('秒杀商品不能再来一单，请在秒杀商品内自行下单');
+            elseif ($v['advance_id']) throw new ApiException('预售商品不能再来一单，请在预售商品内自行下单');
             else $cateId[] = $services->setCart($uid, (int)$v['product_id'], (int)$v['cart_num'], $v['productInfo']['attrInfo']['unique'] ?? '', '0', true);
         }
-        if (!$cateId) throw new ApiException(410262);
+        if (!$cateId) throw new ApiException('再来一单失败，请重新下单');
         return $cateId;
     }
 
@@ -2419,15 +2474,15 @@ HTML;
     public function aliPayOrder(OrderPayServices $payServices, OtherOrderServices $services, string $key, string $quitUrl)
     {
         if (!$key) {
-            throw new ApiException(100100);
+            throw new ApiException('参数错误');
         }
         if (!$quitUrl) {
-            throw new ApiException(100100);
+            throw new ApiException('参数错误');
         }
 
         $orderCache = CacheService::get($key);
         if (!$orderCache || !isset($orderCache['order_id'])) {
-            throw new ApiException(410263);
+            throw new ApiException('该订单无法支付');
         }
 
         $payType = isset($orderCache['other_pay_type']) && $orderCache['other_pay_type'] == true;
@@ -2438,7 +2493,7 @@ HTML;
         }
 
         if (!$orderInfo) {
-            throw new ApiException(410264);
+            throw new ApiException('订单支付状态有误，无法进行支付');
         }
         return $payServices->beforePay($orderInfo->toArray(), PayServices::ALIAPY_PAY, ['quitUrl' => $quitUrl]);
     }
@@ -2455,8 +2510,8 @@ HTML;
      */
     public function getUserOrderByKey(StoreOrderEconomizeServices $services, string $uni, int $uid): array
     {
-        $order = $this->getUserOrderDetail($uni, $uid, ['split', 'invoice']);
-        if (!$order) throw new ApiException(410294);
+        $order = $this->getUserOrderDetail($uni, $uid, ['split', 'invoice', 'user']);
+        if (!$order) throw new ApiException('商品不存在');
         $order = $order->toArray();
         $splitNum = [];
         //是否开启门店自提
@@ -2578,6 +2633,11 @@ HTML;
             'pay_avatar' => '',
             'help_status' => 0
         ];
+        $orderData['gift_user_info'] = [
+            'gift_uid' => $orderData['gift_uid'],
+            'gift_nickname' => '',
+            'gift_avatar' => '',
+        ];
         if ($orderData['uid'] != $orderData['pay_uid']) {
             /** @var UserServices $userServices */
             $userServices = app()->make(UserServices::class);
@@ -2587,6 +2647,16 @@ HTML;
                 'pay_nickname' => $payUser['nickname'],
                 'pay_avatar' => $payUser['avatar'],
                 'help_status' => 1
+            ];
+        }
+        if ($orderData['gift_uid'] != 0) {
+            /** @var UserServices $userServices */
+            $userServices = app()->make(UserServices::class);
+            $giftUser = $userServices->get($orderData['gift_uid'], ['nickname', 'avatar']);
+            $orderData['gift_user_info'] = [
+                'gift_uid' => $orderData['gift_uid'],
+                'gift_nickname' => $giftUser['nickname'],
+                'gift_avatar' => $giftUser['avatar'],
             ];
         }
         // 判断是否开启小程序订单管理
@@ -2603,6 +2673,15 @@ HTML;
 
         }
         $orderData['is_refund_available'] = $this->isRefundAvailable((int)$order['id']);
+
+        $orderData['gift_key'] = $orderData['gift_code'] = '';
+        if ($order['is_gift'] == 1) {
+            $orderData['gift_key'] = md5($order['id'] . '_' . $order['order_id'] . '_' . $order['uid']);
+            /** @var QrcodeServices $qrcodeService */
+            $qrcodeService = app()->make(QrcodeServices::class);
+            $orderData['gift_code'] = $qrcodeService->getRoutineQrcodePath($order['id'], $order['uid'], 7, ['gift_key' => $orderData['gift_key']]);
+        }
+        $orderData['avatar'] = set_file_url($orderData['avatar']);
         return $orderData;
     }
 
@@ -2652,7 +2731,7 @@ HTML;
             $cartInfo = $cartServices->getCartList(['uid' => $uid, 'status' => 1, 'id' => $cartIds], 0, 0, ['productInfo', 'attrInfo']);
         }
         if (!$cartInfo) {
-            throw new ApiException(100026);
+            throw new ApiException('数据不存在');
         }
         $arr = [];
         foreach ($cartInfo as $item) {
@@ -2726,7 +2805,7 @@ HTML;
 
         switch ($type) {
             case 'order':
-                $info = $this->dao->get(['order_id' => $orderId], ['id', 'pay_price', 'add_time', 'combination_id', 'seckill_id', 'bargain_id', 'pay_postage']);
+                $info = $this->dao->get(['order_id' => $orderId], ['id', 'pay_price', 'add_time', 'combination_id', 'seckill_id', 'bargain_id', 'pay_postage', 'is_gift']);
                 if (!$info) {
                     throw new PayException('您支付的订单不存在');
                 }
@@ -2751,6 +2830,7 @@ HTML;
                 $data['offline_postage'] = (int)sys_config('offline_postage', 0);
                 $data['invalid_time'] = $time;
                 $data['oid'] = $info['id'];
+                $data['is_gift'] = $info['is_gift'];
 
                 break;
             case 'svip':
@@ -2913,5 +2993,123 @@ HTML;
             $data['vip_price'] = bcadd((string)$data['vip_price'], $item['vip_sum_truePrice'], 2);
         }
         return $data;
+    }
+
+    public function giftDetail($oid)
+    {
+        $orderInfo = $this->dao->getOne(['id' => $oid, 'is_del' => 0]);
+        if ($orderInfo) {
+            $orderInfo = $orderInfo->toArray();
+        } else {
+            throw new ApiException('订单不存在');
+        }
+        $orderInfo = $this->tidyOrder($orderInfo, true);
+        /** @var UserServices $userServices */
+        $userServices = app()->make(UserServices::class);
+        $userInfo = $userServices->get($orderInfo['uid']);
+        $arr = [];
+        foreach ($orderInfo['cartInfo'] as $cartInfo) {
+            $arr[] = $cartInfo['productInfo']['logistics'];
+        }
+        $res = array_unique(explode(',', implode(',', $arr)));
+        if (count($res) == 2) {
+            $type = 0;
+        } else {
+            if ($res[0] == 2 && sys_config('store_self_mention') == 0) {
+                $type = 1;
+            } else {
+                $type = (int)$res[0];
+            }
+        }
+        return [
+            'id' => $orderInfo['id'],
+            'order_id' => $orderInfo['order_id'],
+            'uid' => $orderInfo['uid'],
+            'avatar' => set_file_url($userInfo['avatar']),
+            'nickname' => $userInfo['nickname'],
+            'cartInfo' => $orderInfo['cartInfo'],
+            'paid' => $orderInfo['paid'],
+            'total_num' => $orderInfo['total_num'],
+            'pay_price' => $orderInfo['pay_price'],
+            'gift_key' => md5($orderInfo['id'] . '_' . $orderInfo['order_id'] . '_' . $orderInfo['uid']),
+            'gift_mark' => $orderInfo['gift_mark'],
+            'gift_uid' => $orderInfo['gift_uid'],
+            'refund_status' => $orderInfo['refund_status'],
+            'type' => $type,
+            'store_self_mention' => (int)sys_config('store_self_mention') ?? 0,//门店自提是否开启
+        ];
+    }
+
+    public function receiveGift($uid, $oid, $gift_key, $shipping_type, $name, $phone, $address_id = 0, $store_id = 0)
+    {
+        $orderInfo = $this->dao->get($oid);
+        if (!$orderInfo) {
+            throw new AdminException('订单不存在');
+        }
+        if ($gift_key != md5($orderInfo['id'] . '_' . $orderInfo['order_id'] . '_' . $orderInfo['uid'])) {
+            throw new AdminException('领取失败');
+        }
+        if ($orderInfo['refund_status'] != 0) {
+            throw new AdminException('订单已退款');
+        }
+        if ($orderInfo['uid'] == $uid) {
+            throw new AdminException('不能领取自己的礼物');
+        }
+        if ($orderInfo['gift_uid'] != 0 && $orderInfo['gift_uid'] != $uid) {
+            return false;
+        }
+        $address = '';
+        if ($shipping_type == 1 && $address_id) {
+            $addressInfo = app()->make(UserAddressServices::class)->getOne(['uid' => $uid, 'id' => $address_id, 'is_del' => 0]);
+            $name = $addressInfo['real_name'];
+            $phone = $addressInfo['phone'];
+            $address = $addressInfo['province'] . ' ' . $addressInfo['city'] . ' ' . $addressInfo['district'] . ' ' . $addressInfo['detail'];
+        }
+        $verify_code = '';
+        if ($shipping_type == 2 && $store_id) {
+            $store_id = app()->make(SystemStoreServices::class)->getStoreDispose($store_id, 'id');
+            if (!$store_id) throw new ApiException('门店选择错误');
+            $verify_code = app()->make(StoreOrderCreateServices::class)->getStoreCode();
+        }
+        $orderData = [
+            'gift_uid' => $uid,
+            'real_name' => $name,
+            'user_phone' => $phone,
+            'user_address' => $address,
+            'shipping_type' => $shipping_type,
+            'store_id' => $store_id,
+            'verify_code' => $verify_code,
+        ];
+        $this->dao->update($oid, $orderData);
+        return true;
+    }
+
+    /**
+     * 修改订单地址
+     * @param $id
+     * @param $data
+     * @return bool
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\DbException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @author wuhaotian
+     * @email 442384644@qq.com
+     * @date 2025/9/8
+     */
+    public function editAddress($id, $data)
+    {
+        $orderInfo = $this->dao->getOne(['id' => $id, 'is_del' => 0]);
+        if (!$orderInfo) {
+            throw new ApiException('订单不存在');
+        }
+        if ($orderInfo['status'] > 0) {
+            throw new ApiException('订单已发货，不能修改地址');
+        }
+        $this->dao->update($id, [
+            'real_name' => $data['real_name'],
+            'user_phone' => $data['user_phone'],
+            'user_address' => $data['user_address'],
+        ]);
+        return true;
     }
 }

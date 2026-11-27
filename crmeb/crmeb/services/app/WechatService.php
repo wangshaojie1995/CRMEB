@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -13,6 +13,7 @@ namespace crmeb\services\app;
 
 use app\services\message\wechat\MessageServices;
 use app\services\pay\PayServices;
+use app\services\system\SystemPemServices;
 use app\services\wechat\WechatMessageServices;
 use app\services\wechat\WechatReplyServices;
 use crmeb\exceptions\AdminException;
@@ -33,6 +34,7 @@ use Symfony\Component\HttpFoundation\Request;
 use think\facade\Event;
 use think\Response;
 use crmeb\services\SystemConfigService;
+use think\facade\Env;
 
 /**
  * 微信公众号
@@ -85,8 +87,8 @@ class WechatService
                 'app_id' => $appId,
                 'merchant_id' => trim($payment['pay_weixin_mchid']),
                 'key' => trim($payment['pay_weixin_key']),
-                'cert_path' => substr(public_path(parse_url($payment['pay_weixin_client_cert'])['path']), 0, strlen(public_path(parse_url($payment['pay_weixin_client_cert'])['path'])) - 1),
-                'key_path' => substr(public_path(parse_url($payment['pay_weixin_client_key'])['path']), 0, strlen(public_path(parse_url($payment['pay_weixin_client_key'])['path'])) - 1),
+                'cert_path' => self::getPemPath('pay_weixin_client_cert'),
+                'key_path' => self::getPemPath('pay_weixin_client_key'),
                 'notify_url' => trim(sys_config('site_url')) . '/api/pay/notify/wechat'
             ];
 
@@ -94,7 +96,28 @@ class WechatService
                 $config['payment']['sub_mch_id'] = trim($payment['pay_sub_merchant_id']);
             }
         }
+//        if (Env::get('cache.driver', 'file') == 'redis') {
+//            $cache = new \Doctrine\Common\Cache\RedisCache();
+//            $cache->setRedis(\think\facade\Cache::store('redis')->handler());
+//            $config['cache'] = $cache;
+//        }
         return $config;
+    }
+
+    public static function getPemPath(string $name)
+    {
+        $systemPemServices = app()->make(SystemPemServices::class);
+        $path = $systemPemServices->getPemPath($name);
+        if ($path) return $path;
+        $path = sys_config($name);
+        if (strstr($path, 'http://') || strstr($path, 'https://')) {
+            $path = parse_url($path)['path'] ?? '';
+        }
+        $path = root_path('runtime/pem') . ltrim($path, '/');
+        if (!file_exists($path)) {
+            $path = public_path('uploads') . ltrim($path, '/');
+        }
+        return $path;
     }
 
     /**
@@ -342,10 +365,10 @@ class WechatService
     {
         $options = self::options();
         if (!isset($options['payment']['cert_path'])) {
-            throw new ApiException(410088);
+            throw new ApiException('企业微信支付到零钱需要支付证书，检测到您没有上传');
         }
         if (!$options['payment']['cert_path']) {
-            throw new ApiException(410088);
+            throw new ApiException('企业微信支付到零钱需要支付证书，检测到您没有上传');
         }
         $merchantPayData = [
             'partner_trade_no' => $orderId, //随机字符串作为订单号，跟红包和支付一个概念。
@@ -359,7 +382,7 @@ class WechatService
         if ($result->return_code == 'SUCCESS' && $result->result_code != 'FAIL') {
             return true;
         } else {
-            throw new ApiException($result->err_code_des ?? 400658);
+            throw new ApiException($result->err_code_des ?? '企业付款到零钱失败，请稍后再试');
         }
     }
 
@@ -561,7 +584,7 @@ class WechatService
 
     public static function payOrderRefund($orderNo, array $opt)
     {
-        if (!isset($opt['pay_price'])) throw new AdminException(400730);
+        if (!isset($opt['pay_price'])) throw new AdminException('缺少pay_price');
         $totalFee = floatval(bcmul($opt['pay_price'], 100, 0));
         $refundFee = isset($opt['refund_price']) ? floatval(bcmul($opt['refund_price'], 100, 0)) : null;
         $refundReason = $opt['desc'] ?? '';
@@ -574,8 +597,8 @@ class WechatService
         $refundAccount = $opt['refund_account'] ?? 'REFUND_SOURCE_UNSETTLED_FUNDS';
         try {
             $res = (self::refund($orderNo, $refundNo, $totalFee, $refundFee, $opUserId, $refundReason, $type, $refundAccount));
-            if ($res->return_code == 'FAIL') throw new AdminException(400731, ['msg' => $res->return_msg]);
-            if (isset($res->err_code)) throw new AdminException(400731, ['msg' => $res->err_code_des]);
+            if ($res->return_code == 'FAIL') throw new AdminException('退款失败:{:msg}', ['msg' => $res->return_msg]);
+            if (isset($res->err_code)) throw new AdminException('退款失败:{:msg}', ['msg' => $res->err_code_des]);
         } catch (\Exception $e) {
             throw new AdminException($e->getMessage());
         }
@@ -622,7 +645,7 @@ class WechatService
      */
     public static function jsSdk($url = '')
     {
-        $apiList = ['openAddress', 'updateTimelineShareData', 'updateAppMessageShareData', 'onMenuShareTimeline', 'onMenuShareAppMessage', 'onMenuShareQQ', 'onMenuShareWeibo', 'onMenuShareQZone', 'startRecord', 'stopRecord', 'onVoiceRecordEnd', 'playVoice', 'pauseVoice', 'stopVoice', 'onVoicePlayEnd', 'uploadVoice', 'downloadVoice', 'chooseImage', 'previewImage', 'uploadImage', 'downloadImage', 'translateVoice', 'getNetworkType', 'openLocation', 'getLocation', 'hideOptionMenu', 'showOptionMenu', 'hideMenuItems', 'showMenuItems', 'hideAllNonBaseMenuItem', 'showAllNonBaseMenuItem', 'closeWindow', 'scanQRCode', 'chooseWXPay', 'openProductSpecificView', 'addCard', 'chooseCard', 'openCard'];
+        $apiList = ['openAddress', 'updateTimelineShareData', 'updateAppMessageShareData', 'onMenuShareTimeline', 'onMenuShareAppMessage', 'onMenuShareQQ', 'onMenuShareWeibo', 'onMenuShareQZone', 'startRecord', 'stopRecord', 'onVoiceRecordEnd', 'playVoice', 'pauseVoice', 'stopVoice', 'onVoicePlayEnd', 'uploadVoice', 'downloadVoice', 'chooseImage', 'previewImage', 'uploadImage', 'downloadImage', 'translateVoice', 'getNetworkType', 'openLocation', 'getLocation', 'hideOptionMenu', 'showOptionMenu', 'hideMenuItems', 'showMenuItems', 'hideAllNonBaseMenuItem', 'showAllNonBaseMenuItem', 'closeWindow', 'scanQRCode', 'chooseWXPay', 'openProductSpecificView', 'addCard', 'chooseCard', 'openCard', 'requestMerchantTransfer'];
         $jsService = self::jsService();
         if ($url) $jsService->setUrl($url);
         try {
@@ -761,7 +784,7 @@ class WechatService
                 if (isset($res['user_info_list'])) {
                     $userInfo = $res['user_info_list'];
                 } else {
-                    throw new AdminException(400732);
+                    throw new AdminException('获取微信粉丝信息失败');
                 }
             } else {
                 $userInfo = $userService->get($openid);

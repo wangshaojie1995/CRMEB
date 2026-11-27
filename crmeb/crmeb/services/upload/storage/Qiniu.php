@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -107,7 +107,7 @@ class Qiniu extends BaseUpload
     protected function app()
     {
         if (!$this->accessKey || !$this->secretKey) {
-            throw new UploadException(400721);
+            throw new UploadException('请先配置accessKey和secretKey');
         }
         $this->handle = new Auth($this->accessKey, $this->secretKey);
         return $this->handle;
@@ -181,7 +181,7 @@ class Qiniu extends BaseUpload
             $this->fileInfo->filePath = ($this->cdn ?: $this->uploadUrl) . '/' . $key;
             $this->fileInfo->fileName = $key;
             $this->fileInfo->filePathWater = $this->water($this->fileInfo->filePath);
-            $this->thumb($this->fileInfo->filePath);
+            $this->authThumb && $this->thumb($this->fileInfo->filePath);
             return $this->fileInfo;
         } catch (UploadException $e) {
             return $this->setError($e->getMessage());
@@ -240,13 +240,13 @@ class Qiniu extends BaseUpload
             switch ($waterConfig['watermark_type']) {
                 case 1://图片
                     if (!$waterConfig['watermark_image']) {
-                        throw new AdminException(400722);
+                        throw new AdminException('请先配置水印图片');
                     }
                     $waterPath = $filePath .= '/1/image/' . base64_encode($waterConfig['watermark_image']) . '/gravity/' . ($this->position[$waterConfig['watermark_position']] ?? 'SouthEest') . '/dissolve/' . $waterConfig['watermark_opacity'] . '/dx/' . $waterConfig['watermark_x'] . '/dy/' . $waterConfig['watermark_y'];
                     break;
                 case 2://文字
                     if (!$waterConfig['watermark_text']) {
-                        throw new AdminException(400723);
+                        throw new AdminException('请先配置水印文字');
                     }
                     $waterPath = $filePath .= '/2/text/' . base64_encode($waterConfig['watermark_text']) . '/fill/' . base64_encode($waterConfig['watermark_text_color']) . '/fontsize/' . $waterConfig['watermark_text_size'] . '/gravity/' . ($this->position[$waterConfig['watermark_position']] ?? 'SouthEest') . '/dx/' . $waterConfig['watermark_x'] . '/dy/' . $waterConfig['watermark_y'];
                     break;

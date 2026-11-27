@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -62,10 +62,10 @@ class EnterpriseWechatService extends NoticeService
                     $d .= $item . "\n>";
                 }
                 $d = substr($d, 0, strlen($d) - 2);
-                HttpService::postRequest($url, [
+                HttpService::postRequest($url, json_encode([
                     'msgtype' => 'markdown',
                     'markdown' => ['content' => $d]
-                ]);
+                ]));
             } catch (\Throwable $e) {
                 Log::error('发送企业群消息失败,失败原因:' . $e->getMessage());
 

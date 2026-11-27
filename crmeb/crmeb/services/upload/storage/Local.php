@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -42,7 +42,7 @@ class Local extends BaseUpload
     public function initialize(array $config)
     {
         parent::initialize($config);
-        $this->defaultPath = Config::get('filesystem.disks.' . Config::get('filesystem.default') . '.url');
+//        $this->defaultPath = Config::get('filesystem.disks.' . Config::get('filesystem.default') . '.url');
         $this->waterConfig['watermark_text_font'] = app()->getRootPath() . 'public' . '/statics/font/simsunb.ttf';
     }
 
@@ -125,24 +125,38 @@ class Local extends BaseUpload
             if (!in_array($fileHandle->getOriginalMime(), $this->validate['fileMime'])) {
                 return $this->setError('不合法的文件类型');
             }
-            $stream = fopen($fileHandle->getPathname(), 'r');
-            $content = (fread($stream, filesize($fileHandle->getPathname())));
-            if (is_resource($stream)) {
-                fclose($stream);
-            }
-            $image = @imagecreatefromstring($content);
-            if ($image === false) {
-                return $this->setError('文件内容不合法');
+            if (in_array($fileHandle->getOriginalMime(), ['image/x-icon', 'image/png', 'image/gif', 'image/jpeg', 'image/jpg', 'image/webp'])) {
+                $stream = fopen($fileHandle->getPathname(), 'r');
+                $content = (fread($stream, filesize($fileHandle->getPathname())));
+                if (is_resource($stream)) {
+                    fclose($stream);
+                }
+                $image = @imagecreatefromstring($content);
+                if ($image === false) {
+                    return $this->setError('文件内容不合法');
+                }
             }
         }
+        $disk = 'public';
+        $path = $this->path;
+        $rule = null;
+        if (in_array($fileHandle->getOriginalMime(), ['application/x-x509-ca-cert', 'application/octet-stream'])) {
+            $disk = 'pem';
+            $path = '';
+            $rule = function () {
+                return md5(microtime(true));
+            };
+        }
+        $this->defaultPath = Config::get('filesystem.disks.' . $disk . '.url');
         if ($realName) {
-            $fileName = Filesystem::putFileAs($this->path, $fileHandle, $fileHandle->getOriginalName());
+            $fileName = Filesystem::disk($disk)->putFileAs($path, $fileHandle, $fileHandle->getOriginalName());
         } else {
-            $fileName = Filesystem::putFile($this->path, $fileHandle);
+            $fileName = Filesystem::disk($disk)->putFile($path, $fileHandle, $rule);
         }
-        if (!$fileName)
+        if (!$fileName) {
             return $this->setError('Upload failure');
-        $filePath = Filesystem::path($fileName);
+        }
+        $filePath = Filesystem::disk($disk)->path($fileName);
         $this->fileInfo->uploadInfo = new File($filePath);
         $this->fileInfo->realName = $fileHandle->getOriginalName();
         $this->fileInfo->fileName = $this->fileInfo->uploadInfo->getFilename();
@@ -177,6 +191,7 @@ class Local extends BaseUpload
         $this->fileInfo->uploadInfo = new File($fileName);
         $this->fileInfo->realName = $key;
         $this->fileInfo->fileName = $key;
+        $this->defaultPath = Config::get('filesystem.disks.' . Config::get('filesystem.default') . '.url');
         $this->fileInfo->filePath = $this->defaultPath . '/' . $this->path . '/' . $key;
         if ($this->checkImage(public_path() . $this->fileInfo->filePath) && $this->authThumb) {
             try {
@@ -208,6 +223,7 @@ class Local extends BaseUpload
         $this->downFileInfo->downloadInfo = new File($fileName);
         $this->downFileInfo->downloadRealName = $key;
         $this->downFileInfo->downloadFileName = $key;
+        $this->defaultPath = Config::get('filesystem.disks.' . Config::get('filesystem.default') . '.url');
         $this->downFileInfo->downloadFilePath = $this->defaultPath . '/' . $this->path . '/' . $key;
         return $this->downFileInfo;
     }
@@ -301,6 +317,7 @@ class Local extends BaseUpload
             if ($pathName == $watermark_image) {//不再本地  继续下载
                 [$p, $e] = $this->getFileName($watermark_image);
                 $name = 'water_image_' . md5($watermark_image) . '.' . $e;
+                $this->defaultPath = Config::get('filesystem.disks.' . Config::get('filesystem.default') . '.url');
                 $watermark_image = '.' . $this->defaultPath . '/' . $this->thumbWaterPath . '/' . $name;
                 if (!file_exists($watermark_image)) {
                     try {
@@ -309,7 +326,7 @@ class Local extends BaseUpload
                         $data = $down->path($this->thumbWaterPath)->downloadImage($waterConfig['watermark_image'], $name);
                         $watermark_image = $data['path'] ?? '';
                     } catch (\Throwable $e) {
-                        throw new AdminException(400724);
+                        throw new AdminException('远程水印图片下载失败');
                     }
                 }
             } else {
@@ -317,7 +334,7 @@ class Local extends BaseUpload
             }
         }
         if (!$watermark_image) {
-            throw new AdminException(400722);
+            throw new AdminException('请先配置水印图片');
         }
         $savePath = public_path() . $filePath;
         try {
@@ -341,7 +358,7 @@ class Local extends BaseUpload
             $waterConfig = $this->waterConfig;
         }
         if (!$waterConfig['watermark_text']) {
-            throw new AdminException(400723);
+            throw new AdminException('请先配置水印文字');
         }
         $savePath = public_path() . $filePath;
         try {

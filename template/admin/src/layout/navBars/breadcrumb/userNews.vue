@@ -2,7 +2,7 @@
   <div class="layout-navbars-breadcrumb-user-news">
     <div class="head-box">
       <div class="head-box-title">系统通知</div>
-      <div class="head-box-btn" v-if="newsList.length > 0" v-db-click @click="onAllReadClick">全部已读</div>
+      <!-- <div class="head-box-btn" v-if="newsList.length > 0" v-db-click @click="onAllReadClick">全部已读</div> -->
     </div>
     <div class="content-box">
       <template v-if="newsList.length > 0">
@@ -35,6 +35,7 @@ import { adminSocket } from '@/libs/socket';
 import { getCookies, removeCookies, setCookies } from '@/libs/util';
 export default {
   name: 'layoutBreadcrumbUserNews',
+  props: {},
   data() {
     return {
       newsList: [],
@@ -42,7 +43,6 @@ export default {
       messageList: [],
     };
   },
-  props: ['vm'],
   mounted() {
     this.getNotict();
     this.newOrderAudioLink = newOrderAudioLink;
@@ -61,7 +61,7 @@ export default {
           title: '新订单',
           message: '您有一个新的订单,ID为(' + data.order_id + '),请注意查看',
         });
-        if (this.newOrderAudioLink) this.newOrderAudioLink.play();
+        if (newOrderAudioLink) newOrderAudioLink.play();
         that.messageList.push({
           title: '新订单提醒',
           icon: 'md-bulb',
@@ -75,7 +75,7 @@ export default {
           title: '退款订单提醒',
           message: '您有一个订单申请退款,ID为(' + data.order_id + '),请注意查看',
         });
-        if (window.newOrderAudioLink) this.newOrderAudioLink.play();
+        if (newOrderAudioLink) newOrderAudioLink.play();
         that.messageList.push({
           title: '退款订单提醒',
           icon: 'md-information',
@@ -170,9 +170,20 @@ export default {
         .catch(() => {});
     },
     jumpUrl(path) {
-      this.vm.$router.push({
-        path,
-      });
+      if (!path) return;
+      // 外链直接新窗口打开
+      if (/^https?:\/\//.test(path)) {
+        window.open(path, '_blank');
+        return;
+      }
+      // 兼容在弹层等特殊渲染环境下 this.$router 可能为 undefined 的情况
+      const router = this.$router || (this.$root && this.$root.$router);
+      if (router && typeof router.push === 'function') {
+        router.push({ path });
+      } else {
+        // 兜底：直接跳转
+        window.location.href = path;
+      }
     },
     icon(type) {
       return require(`@/assets/images/news-${type}.png`);

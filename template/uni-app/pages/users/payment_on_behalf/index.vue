@@ -277,7 +277,7 @@ export default {
 			this.pay_close = false;
 			this.getDetail();
 			uni.navigateTo({
-				url: '/pages/users/payment_on_behalf/pay_status?oid=' + this.oid
+				url: '/pages/users/payment_on_behalf/pay_status?order_id=' + this.oid
 			});
 		},
 		goOrderDetail() {
@@ -434,7 +434,7 @@ export default {
 		.orderGoods {
 			margin-top: 0;
 		}
-		/deep/ .text .name {
+		::v-deep .text .name {
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;

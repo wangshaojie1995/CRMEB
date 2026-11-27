@@ -322,15 +322,7 @@ export default {
                 } else {
                   item.props.disabled = false;
                   item.props.min = 1;
-                  item.validate = [
-                    {
-                      type: 'number',
-                      max: 1000000,
-                      min: 0,
-                      message: '最大只能输入1000000,最小为0',
-                      requred: true,
-                    },
-                  ];
+
                 }
               }
               if (['price'].includes(key)) {
@@ -368,4 +360,4 @@ export default {
   },
 };
 </script>
-<style scoped lang="stylus"></style>
+<style lang="scss" scoped></style>

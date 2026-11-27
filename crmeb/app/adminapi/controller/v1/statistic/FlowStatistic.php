@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -55,7 +55,7 @@ class FlowStatistic extends AuthController
             ['mark', '']
         ]);
         $this->services->setMark($id, $data);
-        return app('json')->success(100024);
+        return app('json')->success('备注成功');
     }
 
     /**
@@ -68,6 +68,12 @@ class FlowStatistic extends AuthController
             ['type', 'day'],
             ['time', '']
         ]);
+
+        // 当$where['time']不为空，且格式不是2025/12/01-2025/12/15时，重置$where['time']为空
+        if ($where['time'] != '' && !preg_match('/^\d{4}\/\d{2}\/\d{2}-\d{4}\/\d{2}\/\d{2}$/', $where['time'])) {
+            $where['time'] = '';
+        }
+
         $data = $this->services->getFlowRecord($where);
         return app('json')->success($data);
     }

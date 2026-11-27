@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -46,11 +46,23 @@ class StoreProductDao extends BaseDao
         })->when(isset($where['cid']) && $where['cid'], function ($query) use ($where) {
             $query->whereIn('id', function ($query) use ($where) {
                 $query->name('store_product_cate')->whereIn('cate_id', function ($query) use ($where) {
-                    $query->name('store_category')->where('pid', is_array($where['cid']) ? 'in' : '=', $where['cid'])->field('id')->select();
+                    $query->name('store_category')->where('pid', is_array($where['cid']) ? 'in' : '=', $where['cid'])
+                        ->whereOr('id', is_array($where['cid']) ? 'in' : '=', $where['cid'])->field('id')->select();
                 })->field('product_id')->select();
             });
-        })->when(isset($where['ids']), function ($query) use ($where) {
-            $query->whereIn('id', $where['ids'])->orderField('id', $where['ids'], 'asc');
+        })->when(isset($where['coupon_category_id']) && $where['coupon_category_id'] != '', function ($query) use ($where) {
+            $where['coupon_category_id'] = toIntArray($where['coupon_category_id']);
+            $query->whereIn('id', function ($query) use ($where) {
+                $query->name('store_product_cate')->whereIn('cate_id', function ($query) use ($where) {
+                    $query->name('store_category')->whereIn('pid', $where['coupon_category_id'])->field('id')->select();
+                })->whereOr('cate_id', 'in', $where['coupon_category_id'])->field('product_id')->select();
+            });
+        })->when(isset($where['ids']) && $where['ids'], function ($query) use ($where) {
+            if ((isset($where['priceOrder']) && $where['priceOrder'] != '') || (isset($where['salesOrder']) && $where['salesOrder'] != '')) {
+                $query->whereIn('id', $where['ids']);
+            } else {
+                $query->whereIn('id', $where['ids'])->orderField('id', $where['ids'], 'asc');
+            }
         })->when(isset($where['is_live']) && $where['is_live'] == 1, function ($query) use ($where) {
             $query->whereNotIn('id', function ($query) {
                 $query->name('live_goods')->where('is_del', 0)->where('audit_status', '<>', 3)->field('product_id')->select();
@@ -110,7 +122,7 @@ class StoreProductDao extends BaseDao
      * @throws \think\db\exception\DbException
      * @throws \think\db\exception\ModelNotFoundException
      */
-    public function getSearchList(array $where, int $page = 0, int $limit = 0, array $field = ['*'], array $with = ['couponId', 'description'])
+    public function getSearchList(array $where, int $page = 0, int $limit = 0, array $field = ['*'], array $with = [])
     {
         if (isset($where['star'])) $with[] = 'star';
         return $this->search($where, false)->with($with)->when($page != 0 && $limit != 0, function ($query) use ($page, $limit) {
@@ -127,7 +139,7 @@ class StoreProductDao extends BaseDao
                 })->field('product_id')->select();
             });
         })->when(isset($where['coupon_category_id']) && $where['coupon_category_id'] != '', function ($query) use ($where) {
-            $where['coupon_category_id'] = stringToIntArray($where['coupon_category_id']);
+            $where['coupon_category_id'] = toIntArray($where['coupon_category_id']);
             $query->whereIn('id', function ($query) use ($where) {
                 $query->name('store_product_cate')->whereIn('cate_id', function ($query) use ($where) {
                     $query->name('store_category')->whereIn('pid', $where['coupon_category_id'])->field('id')->select();
@@ -169,6 +181,12 @@ class StoreProductDao extends BaseDao
             }
         })->when(!$page && $limit, function ($query) use ($limit) {
             $query->limit($limit);
+        })->when(isset($where['store_label_id']), function ($query) use ($where) {
+            $query->where(function ($query) use ($where) {
+                foreach ($where['store_label_id'] as $value) {
+                    $query->whereOr('FIND_IN_SET(:value, label_list)', ['value' => $value]);
+                }
+            });
         })->order('sort desc')->field($field)->select()->toArray();
     }
 
@@ -344,5 +362,35 @@ class StoreProductDao extends BaseDao
     public function downAdvance()
     {
         $this->getModel()->where('presale', 1)->where('presale_end_time', '<', time())->update(['is_show' => 0]);
+    }
+
+    /**
+     * 自定义组件-商品
+     * @param $where
+     * @param $order
+     * @param $limit
+     * @return array
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\DbException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @author wuhaotian
+     * @email 442384644@qq.com
+     * @date 2026/1/13
+     */
+    public function getThemeProduct($where, $order, $limit)
+    {
+        $model = $this->getModel()->with('cateName')->where('is_del', 0)->where('is_show', 1);
+        if ($where['ids'] != '') {
+            $ids = explode(',', $where['ids']);
+            $list = $model->whereIn('id', $ids)->order($order)->limit($limit)->select()->toArray();
+        } else {
+            $list = $model->when($where['cate_ids'] != '', function ($query) use ($where) {
+                $cate_ids = explode(',', $where['cate_ids']);
+                $query->whereIn('id', function ($query) use ($cate_ids) {
+                    $query->name('store_product_cate')->where('cate_id', 'in', $cate_ids)->whereOr('cate_pid', 'in', $cate_ids)->field('product_id')->select();
+                });
+            })->order($order)->limit($limit)->select()->toArray();
+        }
+        return $list;
     }
 }

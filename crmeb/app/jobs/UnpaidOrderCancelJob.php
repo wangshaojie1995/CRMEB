@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -47,6 +47,9 @@ class UnpaidOrderCancelJob extends BaseJobs
         if ($orderInfo->pay_type == 'offline') {
             return true;
         }
+        if ($orderInfo->is_cancel == 1) {
+            return true;
+        }
         /** @var StoreOrderCartInfoServices $cartServices */
         $cartServices = app()->make(StoreOrderCartInfoServices::class);
         $cartInfo = $cartServices->getOrderCartInfo($orderId);
@@ -62,7 +65,7 @@ class UnpaidOrderCancelJob extends BaseJobs
                 return true;
             });
             if ($res) {
-                $orderInfo->is_del = 1;
+                $orderInfo->is_cancel = 1;
                 $orderInfo->mark = '订单未支付已超过系统预设时间';
                 $orderInfo->save();
             }

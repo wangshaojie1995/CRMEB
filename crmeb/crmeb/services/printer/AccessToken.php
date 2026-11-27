@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -11,8 +11,8 @@
 namespace crmeb\services\printer;
 
 
-use app\services\other\CacheServices;
 use crmeb\exceptions\AdminException;
+use crmeb\services\CacheService;
 use crmeb\services\HttpService;
 use think\helper\Str;
 
@@ -128,9 +128,7 @@ class AccessToken extends HttpService
      */
     protected function getYiLianYunAccessToken()
     {
-        /** @var CacheServices $cacheServices */
-        $cacheServices = app()->make(CacheServices::class);
-        $this->accessToken[$this->name] = $cacheServices->getDbCache('YLY_access_token', function () {
+        $this->accessToken[$this->name] = CacheService::remember('YLY_access_token', function () {
             $request = self::postRequest('https://open-api.10ss.net/oauth/oauth', [
                 'client_id' => $this->clientId,
                 'grant_type' => 'client_credentials',
@@ -147,9 +145,10 @@ class AccessToken extends HttpService
             }
             return '';
         }, 86400);
-        if (!$this->accessToken[$this->name])
-            throw new AdminException(400718);
-
+        if (!$this->accessToken[$this->name]){
+            CacheService::delete('YLY_access_token');
+            throw new AdminException('获取access_token获取失败');
+        }
         return $this->accessToken[$this->name];
     }
 

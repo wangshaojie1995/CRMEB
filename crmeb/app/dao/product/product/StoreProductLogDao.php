@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -89,5 +89,21 @@ class StoreProductLogDao extends BaseDao
             })->when($group, function ($query) use ($group) {
                 $query->group($group);
             })->order('add_time desc')->select()->toArray();
+    }
+
+    /**
+     * 获取用户访问商品数量
+     * @param $uid
+     * @return int
+     * @author wuhaotian
+     * @email 442384644@qq.com
+     * @date 2025/2/17
+     */
+    public function getCountByUser($uid)
+    {
+        return $this->getModel()->where('uid', $uid)
+            ->where('type', 'visit')
+            ->group('product_id')
+            ->count();
     }
 }

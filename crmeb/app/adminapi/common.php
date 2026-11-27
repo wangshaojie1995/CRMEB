@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -118,24 +118,44 @@ if (!function_exists('attr_format')) {
         $title = array_column($arr, 'value');
         $result = [];
 
+        // 当属性数组不为空时，进行格式化组合
         if ($len > 0) {
+            // 当属性种类大于1时，需要笛卡尔积组合
             if ($len > 1) {
+                // 先取第一组属性详情作为初始结果
                 $result = $arr[0]['detail'];
+                // 依次与后续每一组属性详情做两两组合
                 for ($i = 0; $i < $len - 1; $i++) {
+                    // 保存当前结果集，用于下一轮循环
                     $temp = $result;
+                    // 清空结果，准备重新收集新组合
                     $result = [];
+                    // 遍历上一轮得到的所有组合
                     foreach ($temp as $item) {
+                        // 将当前组合与下一组属性详情逐个拼接
                         foreach ($arr[$i + 1]['detail'] as $datum) {
-                            $result[] = trim($item) . ',' . trim($datum);
+                            // 如果元素是数组，取value值拼接；否则直接拼接
+                            if (is_array($item)) {
+                                $result[] = trim($item['value']) . ',' . trim($datum['value']);
+                            } else {
+                                $result[] = trim($item) . ',' . trim($datum);
+                            }
                         }
                     }
                 }
             } else {
+                // 仅有一种属性时，直接取出该组所有属性值
                 foreach ($arr[0]['detail'] as $item) {
-                    $result[] = trim($item);
+                    // 同样区分数组与非数组，统一取value或直接取值
+                    if (is_array($item)) {
+                        $result[] = trim($item['value']);
+                    } else {
+                        $result[] = trim($item);
+                    }
                 }
             }
         }
+        // 返回组合后的属性值列表与属性名称列表
         return [$result, $title];
     }
 }

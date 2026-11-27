@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -138,7 +138,7 @@ class RoutineTemplateListService extends NoticeService
             'thing2' => $storeTitle,
             'amount3' => $order['pay_price'],
             'character_string6' => $data['order_id']
-        ], '/pages/goods/order_details/index?order_id=' . $data['order_id'] . '&isReturen=1');
+        ], '/pages/goods/order_details/index?order_id=' . $data['order_id'] . '&isReturn=1');
     }
 
     /**
@@ -155,7 +155,7 @@ class RoutineTemplateListService extends NoticeService
             'thing2' => $storeTitle,
             'amount3' => $order['pay_price'],
             'character_string6' => $order['order_id']
-        ], '/pages/goods/order_details/index?order_id=' . $order['order_id'] . '&isReturen=1');
+        ], '/pages/goods/order_details/index?order_id=' . $order['order_id'] . '&isReturn=1');
     }
 
     /**
@@ -251,10 +251,28 @@ class RoutineTemplateListService extends NoticeService
     {
         return $this->sendTemplate((int)$uid, [
             'thing1' => '提现成功',
-            'amount2' => $extract_number . '元',
+            'amount2' => $extract_number,
             'thing3' => $nickname,
             'date4' => date('Y-m-d H:i:s', time())
         ], '/pages/users/user_spread_money/index?type=1');
+    }
+
+    /**
+     * 用户发起提现，后台同意之后给用户发送
+     * @param $uid
+     * @param $extract_number
+     * @param $order_id
+     * @param $type
+     * @return bool|void
+     */
+    public function sendRevenueReceived($uid, $extract_number, $order_id, $type)
+    {
+        return $this->sendTemplate((int)$uid, [
+            'character_string1' => $order_id,
+            'thing7' => '平台发放佣金',
+            'amount3' => $extract_number,
+            'time10' => date('Y-m-d H:i:s', time())
+        ], '/pages/users/user_spread_money/receiving?id=' . $order_id . '&type=' . $type);
     }
 
     /**

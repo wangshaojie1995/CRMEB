@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -104,9 +104,10 @@ class StoreOrder extends BaseModel
      */
     public function user()
     {
-        return $this->hasOne(User::class, 'uid', 'uid')->field(['uid', 'nickname', 'phone', 'spread_uid'])->bind([
+        return $this->hasOne(User::class, 'uid', 'uid')->field(['uid', 'nickname', 'phone', 'avatar', 'spread_uid'])->bind([
             'nickname' => 'nickname',
-            'phone' => 'phone'
+            'phone' => 'phone',
+            'avatar' => 'avatar',
         ]);
     }
 
@@ -309,9 +310,9 @@ class StoreOrder extends BaseModel
     public function searchUidAttr($query, $value)
     {
         if (is_array($value))
-            $query->whereIn('uid', $value);
+            $query->whereIn('uid|gift_uid', $value);
         else
-            $query->where('uid', $value);
+            $query->where('uid|gift_uid', $value);
     }
 
     /**

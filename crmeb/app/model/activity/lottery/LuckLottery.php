@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -143,5 +143,10 @@ class LuckLottery extends BaseModel
     public function searchIsDelAttr($query, $value)
     {
         if ($value !== '') $query->where('is_del', $value);
+    }
+
+    public function records()
+    {
+        return $this->hasMany(LuckLotteryRecord::class, 'lottery_id', 'id');
     }
 }

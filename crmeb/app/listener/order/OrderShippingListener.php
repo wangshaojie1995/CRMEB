@@ -1,5 +1,13 @@
 <?php
-
+// +----------------------------------------------------------------------
+// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
+// +----------------------------------------------------------------------
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
+// +----------------------------------------------------------------------
+// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
+// +----------------------------------------------------------------------
+// | Author: CRMEB Team <admin@crmeb.com>
+// +----------------------------------------------------------------------
 namespace app\listener\order;
 
 use app\jobs\MiniOrderJob;
@@ -69,6 +77,17 @@ class OrderShippingListener implements ListenerInterface
                 } else {
                     return;
                 }
+            } else if ($order_type == 'offline_scan') {  // 会员订单
+                if ($order['pay_type'] == 'weixin') {
+                    $delivery_type = 3;
+                    $item_desc = '用户线下扫码支付';
+                    $out_trade_no = $order['order_id'];
+                    $pay_uid = $order['uid'];
+                    $secs = 10;
+                    $path = '/pages/user/index';
+                } else {
+                    return;
+                }
             } else {
                 return;
             }
@@ -80,14 +99,27 @@ class OrderShippingListener implements ListenerInterface
             if (!isset($order['shipping_type']) || $order['shipping_type'] == 1) {
                 if ($delivery_type == 1) {
                     //仅实现默认的快递公司
-                    $expressData = ['韵达快递' => 'YD','顺丰速运' => 'SF','圆通速递' => 'YTO','中通快递' => 'ZTO',
-                        '申通快递' => 'STO','百世快递' => 'HTKY','京东物流' => 'JD','极兔速递' => 'JTSD',
-                        '邮政快递包裹' => 'YZPY','EMS' => 'EMS','德邦快递' => 'DBL','宅急送' => 'ZJS',
+                    $expressData = [
+                        '韵达快递' => 'YD',
+                        '顺丰速运' => 'SF',
+                        '圆通速递' => 'YTO',
+                        '中通快递' => 'ZTO',
+                        '申通快递' => 'STO',
+                        '百世快递' => 'HTKY',
+                        '京东物流' => 'JD',
+                        '极兔速递' => 'JTSD',
+                        '邮政快递包裹' => 'YZPY',
+                        'EMS' => 'EMS',
+                        '德邦快递' => 'DBL',
+                        '德邦物流' => 'DBLKY',
+                        '宅急送' => 'ZJS',
+                        '优速快递' => 'UC',
+                        '苏宁物流' => 'SNWL',
                     ];
                     $shipping_list = [
                         [
                             'tracking_no' => $delivery_id ?? '',
-                            'express_company' => $delivery_name ? $expressData['$delivery_name'] : '',
+                            'express_company' => $expressData[$delivery_name] ?? '',
                             'item_desc' => $item_desc,
                             'contact' => [
                                 'receiver_contact' => $order['user_phone']

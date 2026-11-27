@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -203,7 +203,7 @@ class StoreOrderCartInfoServices extends BaseServices
                     $item['cart_num'] = $item['cart_info']['cart_num'] ?? 0;
                 }
             }
-            $item['num'] = 1;
+            $item['num'] = $item['cart_num'];
         }
         return $cartInfo;
     }

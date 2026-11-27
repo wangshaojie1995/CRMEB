@@ -458,7 +458,7 @@
 </script>
 
 <style scoped lang="scss">
-	/deep/.disabled .uni-radio-input {
+	::v-deep.disabled .uni-radio-input {
 		background-color: #F8F8F8;
 	}
 
@@ -591,7 +591,6 @@
 		transform: translateY(-50%);
 		font-size: 30rpx;
 		color: #707070;
-		cursor: pointer;
 	}
 
 	.popup .text .acea-row {

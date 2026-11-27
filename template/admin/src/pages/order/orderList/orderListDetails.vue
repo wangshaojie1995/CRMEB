@@ -1,6 +1,6 @@
 <template>
   <div>
-    <el-card :bordered="false" shadow="never" :body-style="{padding:0}">
+    <el-card :bordered="false" shadow="never" :body-style="{ padding: 0 }">
       <table-form @getList="getData" />
     </el-card>
     <el-card :bordered="false" shadow="never" class="mt16" :body-style="{ padding: '0 20px 20px' }">
@@ -28,7 +28,9 @@ export default {
   },
   methods: {
     changeGetTabs() {
-      this.$parent.getTabs();
+      if (this.$refs.table && this.$refs.table.getTabs) {
+        this.$refs.table.getTabs();
+      }
     },
     // 列表数据
     getData(res) {
@@ -46,12 +48,11 @@ export default {
 };
 </script>
 
-<style scoped lang="stylus">
+<style lang="scss" scoped>
 .card_cent ::v-deep .ivu-card-body {
   width: 100%;
   height: 100%;
 }
-
 .card_box {
   width: 100%;
   height: 100%;
@@ -61,7 +62,6 @@ export default {
   padding: 25px;
   box-sizing: border-box;
   border-radius: 4px;
-
   .card_box_img {
     width: 48px;
     height: 48px;
@@ -74,17 +74,15 @@ export default {
       height: 100%;
     }
   }
-
   .card_box_txt {
     .sp1 {
       display: block;
       color: #252631;
       font-size: 24px;
     }
-
     .sp2 {
       display: block;
-      color: #98A9BC;
+      color: #98a9bc;
       font-size: 12px;
     }
   }

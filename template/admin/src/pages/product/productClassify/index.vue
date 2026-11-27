@@ -24,8 +24,8 @@
               @change="userSearchs"
               class="form_content_width"
             >
-              <el-option value="1" label="显示"></el-option>
-              <el-option value="0" label="隐藏"></el-option>
+              <el-option value="1" label="开启"></el-option>
+              <el-option value="0" label="关闭"></el-option>
             </el-select>
           </el-form-item>
           <el-form-item label="分类名称：" label-for="status2">
@@ -38,7 +38,9 @@
       </div>
     </el-card>
     <el-card :bordered="false" shadow="never" class="ivu-mt mt16">
-      <el-button v-auth="['product-save-cate']" type="primary" class="bnt" v-db-click @click="addClass">添加分类</el-button>
+      <el-button v-auth="['product-save-cate']" type="primary" class="bnt" v-db-click @click="addClass"
+        >添加分类</el-button
+      >
       <vxe-table
         class="mt14"
         highlight-hover-row
@@ -225,12 +227,11 @@ export default {
   },
 };
 </script>
-<style scoped lang="stylus">
+<style lang="scss" scoped>
 .treeSel ::v-deep .ivu-select-dropdown-list {
   padding: 0 10px !important;
   box-sizing: border-box;
 }
-
 .tabBox_img {
   width: 36px;
   height: 36px;

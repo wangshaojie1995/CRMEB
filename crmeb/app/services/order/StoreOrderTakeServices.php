@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -85,22 +85,27 @@ class StoreOrderTakeServices extends BaseServices
     {
         $order = $this->dao->getUserOrderDetail($uni, $uid);
         if (!$order) {
-            throw new ApiException(410173);
+            throw new ApiException('订单不存在');
+        }
+        $refundServices = app()->make(StoreOrderRefundServices::class);
+        $orderIsRefund = $refundServices->orderIsRefund((int)$order['id']);
+        if($orderIsRefund){
+            throw new ApiException('订单退款中，不能收货');
         }
         /** @var StoreOrderServices $orderServices */
         $orderServices = app()->make(StoreOrderServices::class);
         $order = $orderServices->tidyOrder($order);
         if ($order['_status']['_type'] != 2) {
-            throw new ApiException(410266);
+            throw new ApiException('订单状态错误');
         }
         //存在拆分发货 需要分开收货
         if ($this->dao->count(['pid' => $order['id']])) {
-            throw new ApiException(410266);
+            throw new ApiException('订单状态错误');
         }
         $order->status = 2;
         $res = $order->save() && $this->storeProductOrderUserTakeDelivery($order);
         if (!$res) {
-            throw new ApiException(410205);
+            throw new ApiException('收货失败');
         }
         return $order;
     }
@@ -131,7 +136,7 @@ class StoreOrderTakeServices extends BaseServices
             //事业部
             $res4 = $this->divisionBrokerage($order, $userInfo);
             if (!($res1 && $res2 && $res3 && $res4)) {
-                throw new ApiException(410205);
+                throw new ApiException('收货失败');
             }
             return true;
         }, $isTran);
@@ -426,9 +431,10 @@ class StoreOrderTakeServices extends BaseServices
             return $this->backOrderBrokerageTwo($orderInfo, $userInfo, $isSelfBrokerage);
         }
         $brokeragePrice = $orderInfo['one_brokerage'] ?? 0;
-        // 返佣金额小于等于0 直接返回不返佣金
+        // 一级返佣金额小于等于0 直接跳转二级返佣逻辑
         if ($brokeragePrice <= 0) {
-            return true;
+            $frozen_time = time() + intval(sys_config('extract_time')) * 86400;
+            return $this->backOrderBrokerageTwo($orderInfo, $userInfo, $isSelfBrokerage, $frozen_time);
         }
         // 获取上级推广员信息
         $spreadPrice = $userServices->value(['uid' => $one_spread_uid], 'brokerage_price');
@@ -455,8 +461,7 @@ class StoreOrderTakeServices extends BaseServices
             $this->sendBackOrderBrokerage($orderInfo, $one_spread_uid, $brokeragePrice);
         }
         // 一级返佣成功 跳转二级返佣
-        $res = $res1 && $this->backOrderBrokerageTwo($orderInfo, $userInfo, $isSelfBrokerage, $frozen_time);
-        return $res;
+        return $res1 && $this->backOrderBrokerageTwo($orderInfo, $userInfo, $isSelfBrokerage, $frozen_time);
     }
 
 

@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -17,6 +17,7 @@ use app\services\diy\DiyServices;
 use app\services\product\product\StoreCategoryServices;
 use app\services\product\product\StoreProductServices;
 use app\services\user\UserServices;
+use app\services\user\UserSignServices;
 use app\services\wechat\WechatUserServices;
 
 class PublicController
@@ -134,5 +135,11 @@ class PublicController
         $status = (int)$services->getColorChange((string)$name);
         $is_diy = $services->value(['status' => 1, 'is_del' => 0], 'is_diy');
         return app('json')->success(compact('status', 'is_diy'));
+    }
+
+    public function getDiySign(Request $request)
+    {
+        $uid = (int)$request->uid();
+        return app('json')->success(app()->make(UserSignServices::class)->signConfig($uid, 1));
     }
 }

@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -30,12 +30,12 @@ class PrintJob extends BaseJobs
      * @param $id
      * @return bool|void
      */
-    public function doJob($id)
+    public function doJob($id, $print_type)
     {
         try {
             /** @var StoreOrderServices $orderServices */
             $orderServices = app()->make(StoreOrderServices::class);
-            $orderServices->orderPrintTicket((int)$id);
+            $orderServices->orderPrintTicket((int)$id, $print_type);
             return true;
         } catch (\Throwable $e) {
             Log::error('小票打印失败失败,失败原因:' . $e->getMessage());

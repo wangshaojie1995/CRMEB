@@ -10,6 +10,7 @@
 
 import LayoutMain from '@/layout';
 import setting from '@/setting';
+import { active } from 'sortablejs';
 let routePre = setting.routePre;
 
 const pre = 'app_';
@@ -105,6 +106,7 @@ export default {
       meta: {
         auth: ['wechat-wechat-reply-save'],
         title: '关键字添加',
+        activeMenu: routePre + '/app/wechat/reply/keyword',
       },
       component: () => import('@/pages/app/wechat/reply/follow'),
     },
@@ -125,6 +127,15 @@ export default {
         title: '小程序下载',
       },
       component: () => import('@/pages/app/routine/download/index'),
+    },
+    {
+      path: 'routine/ci_upload',
+      name: `${pre}routineCIUpload`,
+      meta: {
+        auth: ['routine-ci-upload'],
+        title: '小程序上传',
+      },
+      component: () => import('@/pages/app/routine/ciUpload/index'),
     },
     {
       path: 'routine/link',

@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -43,7 +43,7 @@ class UserStoreOrderServices extends BaseServices
             $where[] = ['u.nickname|u.phone', 'LIKE', "%$keyword%"];
         }
         [$page, $limit] = $this->getPageValue();
-        $field = "u.uid,u.nickname,u.avatar,from_unixtime(u.add_time,'%Y/%m/%d') as time,u.spread_time,u.spread_count as childCount,p.orderCount,p.numberCount";
+        $field = "u.uid,u.nickname,u.phone,u.avatar,from_unixtime(u.add_time,'%Y/%m/%d') as time,u.spread_time,u.spread_count as childCount,p.orderCount,p.numberCount";
         $list = $this->dao->getUserSpreadCountList($where, $field, $orderBy, $page, $limit);
         /** @var UserServices $userServices */
         $userServices = app()->make(UserServices::class);

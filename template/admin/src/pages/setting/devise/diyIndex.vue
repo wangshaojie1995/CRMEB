@@ -1,112 +1,69 @@
 <template>
   <div class="diy-page">
-    <div class="i-layout-page-header header-title">
-      <div class="fl_header">
-        <span class="ivu-page-header-title mr20" style="padding: 0" v-text="$route.meta.title"></span>
-        <div class="rbtn">
-          <el-button class="ml20 header-btn look" v-db-click @click="preview" :loading="loading">预览</el-button>
-          <el-button class="ml20 header-btn close" v-db-click @click="closeWindow" :loading="loading">关闭</el-button>
-          <el-button class="ml20 header-btn save" v-db-click @click="saveConfig(0)" :loading="loading">保存</el-button>
-        </div>
-      </div>
-    </div>
-
+    <!-- 旧 Header 已迁移至新编辑模块顶部，移除该块 -->
     <el-card :bordered="false" shadow="never">
-      <div class="diy-wrapper">
+      <div class="diy-wrapper" :style="'height:' + clientHeight + 'px;'">
         <!-- 左侧 -->
         <div class="left">
-          <div class="title-bar">
-            <div
-              class="title-item"
-              :class="{ on: tabCur == index }"
-              v-for="(item, index) in tabList"
-              :key="index"
-              v-db-click @click="bindTab(index)"
-            >
-              {{ item.title }}
-            </div>
-          </div>
-          <div class="wrapper" v-if="tabCur == 0">
-            <div v-for="(item, index) in leftMenu" :key="index">
-              <div class="tips" v-db-click @click="item.isOpen = !item.isOpen">
+          <div class="wrapper" :style="'height:' + clientHeight + 'px;'">
+            <div class="list" v-for="(item, index) in leftMenu" :key="index">
+              <div class="tips" @click="item.isOpen = !item.isOpen">
                 {{ item.title }}
-
-                <i class="el-icon-arrow-right" style="font-size: 16px" v-if="!item.isOpen" />
-                <i type="ios-el-icon-arrow-down" style="font-size: 16px" v-else />
+                <div class="iconfont iconyou" v-if="!item.isOpen"></div>
+                <div class="iconfont iconxia" v-else></div>
               </div>
+              <!-- 拖拽组件 -->
               <draggable
                 class="dragArea list-group"
                 :list="item.list"
                 :group="{ name: 'people', pull: 'clone', put: false }"
                 :clone="cloneDog"
                 dragClass="dragClass"
-                filter=".search , .navbar"
+                filter=".search , .navbar , .homeComb , .service"
               >
-                <!--filter=".search , .navbar"-->
-                <!--:class="{ search: element.cname == '搜索框' , navbar: element.cname == '商品分类' }"-->
                 <div
                   class="list-group-item"
                   :class="{
                     search: element.cname == '搜索框',
-                    navbar: element.cname == '商品分类',
+                    navbar: element.cname == '选项卡',
+                    homeComb: element.cname == '轮播搜索',
+                    service: element.cname == '悬浮按钮',
                   }"
                   v-for="element in item.list"
                   :key="element.id"
-                  v-db-click @click="addDom(element, 1)"
+                  @click="addDom(element, 1)"
                   v-show="item.isOpen"
                 >
                   <div>
                     <div class="position" style="display: none">释放鼠标将组建添加到此处</div>
-                    <span class="conter iconfont-diy" :class="element.icon"></span>
+                    <svg class="conter iconfont icon svg-icon" aria-hidden="true">
+                      <use :xlink:href="element.icon"></use>
+                    </svg>
                     <p class="conter">{{ element.cname }}</p>
                   </div>
                 </div>
               </draggable>
             </div>
           </div>
-          <!--                    <div style="padding: 0 20px"><el-button type="primary" style="width: 100%" v-db-click @click="saveConfig">保存</el-button></div>-->
-          <div class="wrapper" v-else :style="'height:' + (clientHeight - 200) + 'px;'">
-            <div class="link-item" v-for="(item, index) in urlList" :key="index">
-              <div class="acea-row row-between-wrapper">
-                <div class="name">{{ item.name }}</div>
-                <span class="copy_btn" v-db-click @click="onCopy(item.example)">复制</span>
-              </div>
-              <div class="link-txt">地址：{{ item.url }}</div>
-              <div class="params">
-                <span class="txt">参数：</span>
-                <span>{{ item.parameter }}</span>
-              </div>
-              <div class="lable">
-                <p class="txt">例如：{{ item.example }}</p>
-              </div>
-            </div>
-          </div>
         </div>
-        <!-- 中间 -->
-        <div
-          class="wrapper-con"
-          style="flex: 1; background: #f0f2f5; display: flex; justify-content: center; padding-top: 20px; height: 100%"
-        >
-          <div class="acticons">
-            <el-button class="bnt mb10" v-db-click @click="showTitle">页面设置</el-button>
-            <span></span>
-            <el-button class="bnt mb10" v-db-click @click="nameModal = true">另存模板</el-button>
-            <span></span>
-            <el-button class="bnt" v-db-click @click="reast">重置</el-button>
-          </div>
+        <!-- 中间自定义配置移动端页面 -->
+        <div class="wrapper-con">
           <div class="content">
-            <div class="contxt" style="display: flex; flex-direction: column; overflow: hidden; height: 100%">
+            <div class="contxt">
               <div class="overflowy">
-                <div class="picture">
-                  <img src="@/assets/images/electric.png" />
-                </div>
-                <div class="page-title" :class="{ on: activeIndex == -100 }" v-db-click @click="showTitle">
+                <div class="picture"><img src="@/assets/images/electric.png" /></div>
+                <div
+                  v-if="pageType == 'home'"
+                  class="page-title"
+                  :class="{ on: activeIndex == -100 }"
+                  @click="showTitle"
+                >
                   {{ titleTxt }}
                   <div class="delete-box"></div>
                   <div class="handle"></div>
                 </div>
               </div>
-              <div class="scrollCon">
+              <div class="scrollCon" :style="'height:' + rollHeight + 'px;'">
                 <div style="width: 460px; margin: 0 auto">
                   <div
                     class="scroll-box"
@@ -122,9 +79,11 @@
                       (colorTxt ? colorPickerTxt : '') +
                       ';background-image: url(' +
                       (picTxt ? picUrlTxt : '') +
-                      ');height: calc(100vh - 155px);'
+                      ');min-height:' +
+                      rollHeight +
+                      'px;'
                     "
-                    ref="imgContainer"
+                    id="imgContainer"
                   >
                     <draggable
                       class="dragArea list-group"
@@ -140,11 +99,16 @@
                         :class="{
                           on: activeIndex == key,
                           top: item.name == 'search_box' || item.name == 'nav_bar',
+                          hide: defaultArrays[item.num].isHide,
                         }"
                         v-for="(item, key) in mConfig"
                         :key="key"
-                        v-db-click @click.stop="bindconfig(item, key)"
-                        :style="colorTxt ? 'background-color:' + colorPickerTxt + ';' : 'background-color:#fff;'"
+                        @click.stop="bindconfig(item, key)"
+                        :style="
+                          colorTxt
+                            ? 'background-color:' + colorPickerTxt + ';'
+                            : 'background-color: rgba(255,255,255, 0);'
+                        "
                       >
                         <component
                           :is="item.name"
@@ -152,50 +116,81 @@
                           :configData="propsObj"
                           :index="key"
                           :num="item.num"
+                          :colorStyle="colorStyle"
                         ></component>
                         <div class="delete-box">
                           <div class="handleType">
-                            <el-tooltip content="删除当前模块" placement="top">
-                              <div class="iconfont iconshanchu2" v-db-click @click.stop="bindDelete(item, key)"></div>
-                            </el-tooltip>
-
-                            <div class="iconfont iconfuzhi" v-db-click @click.stop="bindAddDom(item, 0, key)"></div>
                             <div
-                              class="iconfont iconshangyi"
+                              class="iconfont"
+                              :class="defaultArrays[item.num].isHide ? 'iconyincang' : 'iconxianshi'"
+                              @click.stop="bindHide(item)"
+                            ></div>
+                            <div class="iconfont iconshanchu3" @click.stop="bindDelete(item, key)"></div>
+                            <div class="iconfont icona-fuzhi1" @click.stop="bindAddDom(item, 0, key)"></div>
+                            <div
+                              class="iconfont iconshang"
                               :class="key === 0 ? 'on' : ''"
-                              v-db-click @click.stop="movePage(item, key, 1)"
+                              @click.stop="movePage(item, key, 1)"
                             ></div>
                             <div
-                              class="iconfont iconxiayi"
+                              class="iconfont iconxia"
                               :class="key === mConfig.length - 1 ? 'on' : ''"
-                              v-db-click @click.stop="movePage(item, key, 0)"
+                              @click.stop="movePage(item, key, 0)"
                             ></div>
                           </div>
                         </div>
                         <div class="handle"></div>
+                        <div class="delete-name" :class="{ on: activeIndex == key }">
+                          <span
+                            v-if="
+                              item.name == 'home_custom_component' &&
+                              defaultArrays[item.num] &&
+                              defaultArrays[item.num].selectType
+                            "
+                            class="custom-badge"
+                            >{{ getBadgeText(defaultArrays[item.num].selectType.activeValue) }}</span
+                          >
+                          {{ item.cname }}
+                        </div>
                       </div>
                     </draggable>
                   </div>
                 </div>
               </div>
-              <div class="overflowy">
-                <div class="page-foot" v-db-click @click="showFoot" :class="{ on: activeIndex == -101 }">
+              <div class="overflowy" v-if="pageType == 'home' && !isMicroPage">
+                <div
+                  class="page-foot"
+                  @click="showFoot"
+                  :class="{ on: activeIndex == -101 }"
+                  :style="pageFooterType == 1 ? 'bottom:' + (50 + pageFooterBottom) + 'px' : ''"
+                >
                   <footPage></footPage>
                   <div class="delete-box"></div>
                   <div class="handle"></div>
                 </div>
               </div>
-              <!-- <div class="defaultData" v-if="pageId !== 0">
-                <div class="data" v-db-click @click="setmoren">设置默认</div>
-                <div class="data" v-db-click @click="getmoren">恢复默认</div>
-              </div> -->
+              <div class="overflowy" v-if="pageType == 'detail'">
+                <div class="page-foot" @click="showBottomMenu" :class="{ on: activeIndex == -102 }">
+                  <home_bottom_menu :colorStyle="colorStyle"></home_bottom_menu>
+                  <div class="delete-box"></div>
+                  <div class="handle"></div>
+                </div>
+              </div>
+              <div class="defaultData" v-if="pageId !== 0">
+                <!-- <div class="data" @click="setmoren">设置默认</div>
+                <div class="data" @click="getmoren">恢复默认</div> -->
+                <el-button class="data" @click="showTitle">页面设置</el-button>
+                <el-button class="data" @click="nameModal = true">另存模版</el-button>
+                <el-button class="data" @click="reast">重置</el-button>
+                <el-button v-if="!isMicroPage" class="data" @click="saveCover">保存为封面</el-button>
+              </div>
             </div>
           </div>
         </div>
-        <!-- 右侧 -->
+        <!-- 右侧页面设置 -->
         <div class="right-box">
           <div class="mConfig-item" style="background-color: #fff" v-for="(item, key) in rConfig" :key="key">
-            <div class="title-bar">{{ item.cname }}</div>
+            <!-- <div class="title-bar">{{ item.cname }}</div> -->
             <component
               :is="item.configName"
               @config="config"
@@ -234,20 +229,31 @@
 </template>
 
 <script crossorigin="anonymous">
-import { categoryList, getDiyInfo, saveDiy, getUrl, setDefault, recovery, getRoutineCode } from '@/api/diy';
+import {
+  categoryList,
+  themeInfo,
+  themeSave,
+  setDefault,
+  recovery,
+  diyUpdateName,
+  getRoutineCode,
+  saveThemeImage,
+} from '@/api/diy';
+import { fileUpload } from '@/api/setting';
 import vuedraggable from 'vuedraggable';
-import mPage from '@/components/mobilePageDiy/index.js';
-import mConfig from '@/components/mobileConfigDiy/index.js';
+import mPage from '@/components/mobilePage/index.js';
+import mConfig from '@/components/mobileConfig/index.js';
+import home_bottom_menu from '@/components/mobilePage/home_bottom_menu.vue';
+
 import footPage from '@/components/pagesFoot';
 import { mapState } from 'vuex';
 import html2canvas from 'html2canvas';
+import theme from '@/mixins/theme';
+import Setting from '@/setting';
 import QRCode from 'qrcodejs2';
-import { writeUpdate } from '@api/order';
-import checkArray from '@/libs/permission';
 
-let idGlobal = 0;
 export default {
-  inject: ['reload'],
+  inject: ['reload', 'setDirty'],
   name: 'index.vue',
   components: {
     footPage,
@@ -255,6 +261,7 @@ export default {
     draggable: vuedraggable,
     ...mPage,
     ...mConfig,
+    home_bottom_menu,
   },
   filters: {
     filterTxt(val) {
@@ -266,17 +273,35 @@ export default {
   computed: {
     ...mapState({
       titleTxt: (state) => state.mobildConfig.pageTitle || '首页',
-      nameTxt: (state) => state.mobildConfig.pageName || '模板',
       showTxt: (state) => state.mobildConfig.pageShow,
       colorTxt: (state) => state.mobildConfig.pageColor,
+      bgPic: (state) => state.mobildConfig.pagePic,
       picTxt: (state) => state.mobildConfig.pagePic,
       colorPickerTxt: (state) => state.mobildConfig.pageColorPicker,
       tabValTxt: (state) => state.mobildConfig.pageTabVal,
       picUrlTxt: (state) => state.mobildConfig.pagePicUrl,
+      pageFooterType: (state) => state.mobildConfig.pageFooter.navConfig.tabVal || 0,
+      pageFooterBottom: (state) => state.mobildConfig.pageFooter.mbConfig.val,
+      defaultArrays: (state) => state.mobildConfig.defaultArray,
     }),
+    nameTxt: {
+      get() {
+        return this.$store.state.mobildConfig.pageName;
+      },
+      set(value) {
+        this.$store.commit('mobildConfig/UPNAME', value);
+      },
+    },
+    isMicroPage() {
+      return this.$route.query.page_type == 'micro';
+    },
   },
+  mixins: [theme],
   data() {
     return {
+      BaseURL: Setting.apiBaseURL.replace(/adminapi/, ''),
+      qrcodeImg: '',
+      modal: false,
       clientHeight: '', //页面动态高度
       rollHeight: '',
       leftMenu: [], // 左侧菜单
@@ -301,78 +326,234 @@ export default {
           key: 1,
         },
       ],
-      tabCur: 0,
-      urlList: [],
       footActive: false,
       loading: false,
+      relLoading: false,
       isSearch: false,
       isTab: false,
-      isHomeProduct: false,
       isFllow: false,
-      qrcodeImg: '',
-      modal: false,
+      isComb: false,
+      isService: false,
+      visible: true,
+      diyStatus: 0,
       nameModal: false,
       saveName: '',
     };
   },
-  beforeRouteLeave(to, from, next) {
-    // 导航离开该组件的对应路由时调用
-  },
   beforeCreate() {
-    this.$store.commit('mobildConfig/titleUpdata', '');
-    this.$store.commit('mobildConfig/nameUpdata', '');
-    this.$store.commit('mobildConfig/showUpdata', 1);
-    this.$store.commit('mobildConfig/colorUpdata', 0);
-    this.$store.commit('mobildConfig/picUpdata', 0);
-    this.$store.commit('mobildConfig/pickerUpdata', '#f5f5f5');
-    this.$store.commit('mobildConfig/radioUpdata', 0);
-    this.$store.commit('mobildConfig/picurlUpdata', '');
     this.$store.commit('mobildConfig/SETEMPTY');
   },
   created() {
-    window.onbeforeunload = () => {
-      return '刷新页面将丢失内容,是否继续?';
-    };
     this.categoryList();
-    this.getUrlList();
     this.pageId = this.$route.query.id;
     this.pageName = this.$route.query.name;
     this.pageType = this.$route.query.type;
     this.lConfig = this.objToArr(mPage);
-  },
-  mounted() {
-    // window.addEventListener('onbeforeunload', this.beforeUnload);
     let imgList = {
       imgList: [require('@/assets/images/foot-005.png'), require('@/assets/images/foot-006.png')],
       name: '购物车',
       link: '/pages/order_addcart/order_addcart',
     };
     this.$nextTick(() => {
-      this.$store.commit('mobildConfig/FOOTER', {
-        title: '专题页是否显示',
-        name: imgList,
-      });
+      this.$store.commit('mobildConfig/FOOTER', { title: '是否自定义', name: imgList });
       this.arraySort();
-      if (this.pageId != 0) {
+      if (this.pageId != 0 || this.$route.query.tid) {
         this.getDefaultConfig();
-      } else {
+      } else if (this.pageType == 'home') {
         this.showTitle();
+      } else {
+        // 清空 vuex 中的 defaultArray
+        this.$store.commit('mobildConfig/DEFAULTARRAY', {});
+        this.$store.commit('mobildConfig/RESET_BOTTOM_MENU');
       }
-      this.clientHeight = `${document.documentElement.clientHeight}`; //获取浏览器可视区域高度
+      this.clientHeight = `${document.documentElement.clientHeight}` - 65.81; //获取浏览器可视区域高度
       let H = `${document.documentElement.clientHeight}` - 180;
       this.rollHeight = H > 650 ? 650 : H;
       let that = this;
       window.onresize = function () {
-        that.clientHeight = `${document.documentElement.clientHeight}`;
+        that.clientHeight = `${document.documentElement.clientHeight}` - 65.81;
         let H = `${document.documentElement.clientHeight}` - 180;
         that.rollHeight = H > 650 ? 650 : H;
       };
     });
   },
+  watch: {
+    mConfig: {
+      handler(nVal, oVal) {
+        if (this.setDirty) {
+          this.setDirty(true);
+        }
+      },
+      deep: true,
+    },
+    'mConfig.length': {
+      handler(nVal, oVal) {
+        if (this.setDirty) {
+          this.setDirty(true);
+        }
+      },
+    },
+    defaultArrays: {
+      handler(nVal, oVal) {
+        if (this.setDirty) {
+          this.setDirty(true);
+        }
+      },
+      deep: true,
+    },
+  },
   methods: {
-    saveModal() {
-      if (!this.saveName) return this.$message.warning('请先输入模板名称');
-      this.saveConfig(1, this.saveName);
+    exportView() {
+      let that = this;
+      this.loading = true;
+      this.$nextTick(() => {
+        console.log(this.mConfig);
+      });
+    },
+    importView() {},
+    // 将远程图片（OSS等）转为 base64，绕过 html2canvas 跨域限制
+    async convertImagesToBase64(container) {
+      const imgs = container.querySelectorAll('img');
+      const tasks = Array.from(imgs).map((img) => {
+        return new Promise((resolve) => {
+          const src = img.getAttribute('src');
+          if (!src || src.startsWith('data:')) {
+            resolve();
+            return;
+          }
+          // 给 URL 追加时间戳，避免浏览器缓存导致丢失 CORS 响应头
+          const separator = src.includes('?') ? '&' : '?';
+          const cacheBustUrl = `${src}${separator}_t=${Date.now()}`;
+          fetch(cacheBustUrl, { mode: 'cors', cache: 'no-store' })
+            .then((res) => res.blob())
+            .then((blob) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                img.setAttribute('src', reader.result);
+                resolve();
+              };
+              reader.onerror = () => resolve(); // 转换失败则跳过，不阻塞
+              reader.readAsDataURL(blob);
+            })
+            .catch(() => resolve()); // 请求失败则跳过
+        });
+      });
+      await Promise.all(tasks);
+    },
+
+    // 保存为封面 - 截取长图并上传
+    saveCover() {
+      // 保存当前选中的组件索引
+      const previousActiveIndex = this.activeIndex;
+      this.$message.info('正在生成封面图片，请稍候...');
+
+      setTimeout(async () => {
+        try {
+          // 取消选中状态
+          this.activeIndex = -999;
+          this.rConfig = [];
+
+          // 等待 DOM 更新
+          await this.$nextTick();
+
+          // 获取 imgContainer 元素
+          const container = document.getElementById('imgContainer');
+          if (!container) {
+            this.$message.error('未找到页面容器元素');
+            // 恢复选中状态
+            this.activeIndex = previousActiveIndex;
+            this.restoreActiveComponent(previousActiveIndex);
+            return;
+          }
+
+          // 将容器内所有远程图片（含OSS）预先转为 base64，解决 html2canvas 跨域白图问题
+          await this.convertImagesToBase64(container);
+
+          // 使用 html2canvas 截取长图
+          const canvas = await html2canvas(container, {
+            useCORS: true,
+            allowTaint: true, // 已手动转为 base64，可放开 allowTaint
+            logging: false,
+            scale: 2, // 提高清晰度
+            backgroundColor: this.colorTxt ? this.colorPickerTxt : '#ffffff',
+            scrollY: -window.scrollY,
+            scrollX: -window.scrollX,
+            windowWidth: container.scrollWidth,
+            windowHeight: container.scrollHeight,
+          });
+
+          // 将 canvas 转换为 blob
+          canvas.toBlob(
+            async (blob) => {
+              if (!blob) {
+                this.$message.error('图片生成失败');
+                // 恢复选中状态
+                this.activeIndex = previousActiveIndex;
+                this.restoreActiveComponent(previousActiveIndex);
+                return;
+              }
+
+              // 创建 FormData 上传
+              const formData = new FormData();
+              const fileName = `cover_${Date.now()}.png`;
+              const file = new File([blob], fileName, { type: 'image/png' });
+              formData.append('file', file);
+              formData.append('type', 1);
+
+              try {
+                // 上传到后端
+                const res = await fileUpload(formData);
+                if (res.status === 200) {
+                  this.$message.success('封面保存成功！');
+                  // 这里可以根据需要将图片URL保存到页面配置中
+                  this.coverUrl = res.data.src;
+                  if (!this.mConfig.length) return this.$message.warning('请先配置DIY数据');
+                  if (!this.pageId) return this.$message.warning('请先保存DIY数据');
+                  saveThemeImage(this.pageId, { image: this.coverUrl, type: this.pageType });
+                } else {
+                  this.$message.error(res.msg || '封面保存失败');
+                }
+              } catch (err) {
+                this.$message.error(err.msg || '上传失败，请重试');
+              } finally {
+                // 恢复选中状态
+                this.activeIndex = previousActiveIndex;
+                this.restoreActiveComponent(previousActiveIndex);
+              }
+            },
+            'image/png',
+            0.95,
+          ); // 图片质量 0.95
+        } catch (error) {
+          console.error('截图失败：', error);
+          this.$message.error('生成封面失败，请重试');
+          // 恢复选中状态
+          this.activeIndex = previousActiveIndex;
+          this.restoreActiveComponent(previousActiveIndex);
+        }
+      }, 300);
+    },
+    // 恢复选中的组件
+    restoreActiveComponent(index) {
+      if (index === -100) {
+        // 恢复页面设置
+        this.showTitle();
+      } else if (index === -101) {
+        // 恢复底部菜单
+        this.showFoot();
+      } else if (index === -102) {
+        // 恢复底部菜单
+        this.showBottomMenu();
+      } else if (index >= 0 && index < this.mConfig.length) {
+        // 恢复组件选中
+        const item = this.mConfig[index];
+        this.bindconfig(item, index);
+      }
+    },
+    preview() {
+      this.modal = true;
+      this.creatQrCode(this.pageId, this.diyStatus);
+      this.routineCode(this.pageId);
     },
     //小程序二维码
     routineCode(id) {
@@ -384,17 +565,15 @@ export default {
           this.$message.error(err);
         });
     },
-    preview(row) {
-      this.modal = true;
-      this.$nextTick((e) => {
-        this.creatQrCode(row.id);
-        this.routineCode(this.$route.query.id);
-      });
-    },
     //生成二维码
-    creatQrCode(id) {
+    creatQrCode(id, status) {
       this.$refs.qrCodeUrl.innerHTML = '';
-      let url = `${this.BaseURL}pages/annex/special/index?id=${id}`;
+      let url = `${this.BaseURL}pages/index/index?theme_id=${this.$route.query.id}`;
+      // if (status) {
+      //   url = `${this.BaseURL}pages/index/index`;
+      // } else {
+      //   url = `${this.BaseURL}pages/annex/special/index?id=${id}`;
+      // }
       var qrcode = new QRCode(this.$refs.qrCodeUrl, {
         text: url, // 需要转换为二维码的内容
         width: 160,
@@ -404,10 +583,34 @@ export default {
         correctLevel: QRCode.CorrectLevel.H,
       });
     },
-    closeWindow() {
+    changName(val) {
+      this.$store.commit('mobildConfig/UPNAME', val);
+    },
+    cancel() {
+      this.visible = false;
+    },
+    determine() {
+      if (this.nameTxt.trim() == '') {
+        return this.$message.error('请输入模板名称');
+      }
+      if (this.pageId == 0) {
+        this.$message.success('修改成功');
+        return false;
+      }
+      diyUpdateName(this.pageId, { name: this.nameTxt })
+        .then((res) => {
+          this.visible = false;
+          this.$message.success(res.msg);
+        })
+        .catch((err) => {
+          this.$message.error(err.msg);
+        });
+      this.visible = false;
+    },
+    returnTap() {
       this.$msgbox({
-        title: '提示',
-        message: '关闭页面前请先保存数据，未保存的话数据会丢失',
+        title: '温馨提示',
+        message: '确定离开此页面？系统可能不会保存您所做的更改。',
         showCancelButton: true,
         cancelButtonText: '取消',
         confirmButtonText: '确定',
@@ -415,10 +618,7 @@ export default {
         confirmButtonClass: 'btn-custom-cancel',
       })
         .then(() => {
-          setTimeout(() => {
-            // this.saveConfig();
-            window.close();
-          }, 1000);
+          this.$router.push(this.$routeProStr + '/setting/pages/devise/0');
         })
         .catch(() => {});
     },
@@ -438,74 +638,35 @@ export default {
     onMove(e) {
       if (e.relatedContext.element.name == 'search_box') return false;
       if (e.relatedContext.element.name == 'nav_bar') return false;
+      if (e.relatedContext.element.name == 'home_comb') return false;
       return true;
     },
-    onCopy(copyData) {
-      this.$copyText(copyData)
-        .then((message) => {
-          this.$message.success('复制成功');
-        })
-        .catch((err) => {
-          this.$message.error('复制失败');
-        });
+    onCopy() {
+      this.$message.success('复制成功');
     },
     onError() {
       this.$message.error('复制失败');
     },
     //设置默认数据
     setmoren() {
-      this.$msgbox({
-        title: '保存为默认数据',
-        message: '您确定将当前设计设为默认数据吗',
-        showCancelButton: true,
-        cancelButtonText: '取消',
-        confirmButtonText: '确定',
-        iconClass: 'el-icon-warning',
-        confirmButtonClass: 'btn-custom-cancel',
-      })
-        .then(() => {
-          setDefault(this.pageId)
-            .then((res) => {
-              this.$message.success(res.msg);
-            })
-            .catch((err) => {
-              this.$message.error(err.msg);
-            });
+      setDefault(this.pageId)
+        .then((res) => {
+          this.$message.success(res.msg);
         })
-        .catch(() => {});
+        .catch((err) => {
+          this.$message.error(err.msg);
+        });
     },
     //恢复默认
     getmoren() {
-      this.$msgbox({
-        title: '恢复默认数据',
-        message: '您确定恢复为之前保存的默认数据吗',
-        showCancelButton: true,
-        cancelButtonText: '取消',
-        confirmButtonText: '确定',
-        iconClass: 'el-icon-warning',
-        confirmButtonClass: 'btn-custom-cancel',
-      })
-        .then(() => {
-          recovery(this.pageId)
-            .then((res) => {
-              this.$message.success(res.msg);
-              this.reload();
-            })
-            .catch((err) => {
-              this.$message.error(err.msg);
-            });
+      recovery(this.pageId)
+        .then((res) => {
+          this.$message.success(res.msg);
+          this.reload();
         })
-        .catch(() => {});
-    },
-    // 获取url
-    getUrlList() {
-      getUrl().then((res) => {
-        this.urlList = res.data.url;
-      });
-    },
-    // 左侧tab
-    bindTab(index) {
-      this.tabCur = index;
+        .catch((err) => {
+          this.$message.error(err.msg);
+        });
     },
     // 页面标题点击
     showTitle() {
@@ -539,6 +700,20 @@ export default {
       this.rConfig = [];
       this.rConfig[0] = JSON.parse(JSON.stringify(obj));
     },
+    showBottomMenu() {
+      this.activeIndex = -102;
+      let obj = {};
+      for (var i in mConfig) {
+        if (i == 'c_bottom_menu') {
+          // this.rConfig = obj
+          obj = mConfig[i];
+          obj.configName = mConfig[i].name;
+          obj.cname = '底部菜单';
+        }
+      }
+      this.rConfig = [];
+      this.rConfig.push(JSON.parse(JSON.stringify(obj)));
+    },
     // 对象转数组
     objToArr(data) {
       let obj = Object.keys(data);
@@ -548,10 +723,9 @@ export default {
     log(evt) {
       // 中间拖拽排序
       if (evt.moved) {
-        if (evt.moved.element.name == 'search_box' || evt.moved.element.name == 'nav_bar') {
+        if (evt.moved.element.name == 'search_box') {
           return this.$message.warning('该组件禁止拖拽');
         }
-
         // if (evt.moved.element.name == "nav_bar") {
         //     return this.$message.warning("该组件禁止拖拽");
         // }
@@ -614,16 +788,16 @@ export default {
           return;
         }
       }
-      if (item.name == 'search_box' || item.name == 'nav_bar') {
+      if (item.name == 'search_box' || item.name == 'nav_bar' || item.name == 'home_comb') {
         return this.$message.warning('该组件禁止移动');
       }
-      // if (item.name == "nav_bar") {
-      //     return this.$message.warning("该组件禁止移动");
-      // }
       if (type) {
-        // if(this.mConfig[index-1].name  == "search_box" || this.mConfig[index-1].name  == "nav_bar"){
-        if (this.mConfig[index - 1].name == 'search_box') {
-          return this.$message.warning('搜索框必须为顶部');
+        if (
+          this.mConfig[index - 1].name == 'search_box' ||
+          this.mConfig[index - 1].name == 'nav_bar' ||
+          this.mConfig[index - 1].name == 'home_comb'
+        ) {
+          return this.$message.warning('搜索框或选项卡或轮播搜索必须为顶部');
         }
         this.swapArray(this.mConfig, index - 1, index);
       } else {
@@ -649,39 +823,48 @@ export default {
       } else {
         this.activeIndex = index + 1;
       }
+
       this.$store.commit('mobildConfig/SETCONFIGNAME', item.name);
       this.$store.commit('mobildConfig/defaultArraySort', obj);
     },
     // 组件添加
     addDomCon(item, type, index) {
-    console.log(item)
       if (item.name == 'search_box') {
         if (this.isSearch) return this.$message.error('该组件只能添加一次');
+        if (this.isComb) return this.$message.error('轮播搜索不能和搜索组件与选项卡组件同时存在');
         this.isSearch = true;
       }
       if (item.name == 'nav_bar') {
         if (this.isTab) return this.$message.error('该组件只能添加一次');
+        if (this.isComb) return this.$message.error('轮播搜索不能和搜索组件与选项卡组件同时存在');
         this.isTab = true;
       }
-      if (item.name == 'home_product') {
-        if (this.isHomeProduct) return this.$message.error('该组件只能添加一次');
-        this.isHomeProduct = true;
+      if (item.name == 'home_comb') {
+        if (this.isComb) return this.$message.error('该组件只能添加一次');
+        if (this.isSearch || this.isTab) return this.$message.error('轮播搜索不能和搜索组件与选项卡组件同时存在');
+        this.isComb = true;
       }
-      idGlobal += 1;
+      if (item.name == 'home_service') {
+        if (this.isService) return this.$message.error('该组件只能添加一次');
+        this.isService = true;
+      }
       let obj = {};
       let timestamp = new Date().getTime() * 1000;
       item.num = `${timestamp}`;
       item.id = `id${timestamp}`;
       this.activeConfigName = item.name;
       let tempItem = JSON.parse(JSON.stringify(item));
-      if (item.name == 'search_box') {
+      if (item.name == 'home_comb') {
         this.rConfig = [];
         this.mConfig.unshift(tempItem);
         this.activeIndex = 0;
         this.rConfig.push(tempItem);
-      }
-      // 动态拖动可上传此部分代码
-      else if (item.name == 'nav_bar') {
+      } else if (item.name == 'search_box') {
+        this.rConfig = [];
+        this.mConfig.unshift(tempItem);
+        this.activeIndex = 0;
+        this.rConfig.push(tempItem);
+      } else if (item.name == 'nav_bar') {
         this.rConfig = [];
         if (this.mConfig[0] && this.mConfig[0].name === 'search_box') {
           this.mConfig.splice(1, 0, tempItem);
@@ -694,8 +877,12 @@ export default {
       } else {
         if (type) {
           this.rConfig = [];
-          this.mConfig.push(tempItem);
-          this.activeIndex = this.mConfig.length - 1;
+          if (this.activeIndex == 0 && this.mConfig[1] && this.mConfig[1].name == 'nav_bar') {
+            this.activeIndex = 2;
+          } else {
+            this.activeIndex = this.activeIndex >= 0 ? this.activeIndex + 1 : this.mConfig.length;
+          }
+          this.mConfig.splice(this.activeIndex, 0, tempItem);
           this.rConfig.push(tempItem);
         } else {
           this.mConfig.splice(index + 1, 0, tempItem);
@@ -713,13 +900,48 @@ export default {
     },
     //中间页点击添加模块；
     bindAddDom(item, type, index) {
-      let i = item;
-      this.lConfig.forEach((j) => {
-        if (item.name == j.name) {
-          i = j;
-        }
-      });
-      this.addDomCon(i, type, index);
+      // 复制
+      if (type == 0) {
+        let defaultArray = this.$store.state.mobildConfig.defaultArray;
+        let configData = JSON.parse(JSON.stringify(defaultArray[item.num]));
+
+        // 找到原始配置以获取 cname, icon 等基础信息
+        let baseItem = item;
+        this.lConfig.forEach((j) => {
+          if (item.name == j.name) {
+            baseItem = j;
+          }
+        });
+
+        // 先调用 addDomCon 添加一个新组件，然后立即用 configData 覆盖它
+        this.addDomCon(baseItem, type, index);
+
+        // 获取刚添加的组件（在 index+1 位置，因为 addDomCon 是 splice(index+1, 0, ...)）
+        let newIndex = index + 1;
+        let newItem = this.mConfig[newIndex];
+
+        // 重新获取最新的 defaultArray (引用)
+        let currentDefaultArray = this.$store.state.mobildConfig.defaultArray;
+
+        // 保留新生成的 num 和 timestamp 相关字段，覆盖其他配置
+        let newConfig = {
+          ...configData,
+          num: newItem.num,
+          id: newItem.id, // 确保使用新生成的唯一ID
+          timestamp: currentDefaultArray[newItem.num].timestamp,
+        };
+
+        // 提交更新
+        this.$store.commit('mobildConfig/UPDATEARR', { num: newItem.num, val: newConfig });
+      } else {
+        let i = item;
+        this.lConfig.forEach((j) => {
+          if (item.name == j.name) {
+            i = j;
+          }
+        });
+        this.addDomCon(i, type, index);
+      }
     },
     //左边配置模块点击添加；
     addDom(item, type) {
@@ -733,31 +955,48 @@ export default {
       this.activeIndex = index;
       this.$store.commit('mobildConfig/SETCONFIGNAME', item.name);
     },
+    bindHide(item) {
+      let obj = this.$store.state.mobildConfig.defaultArray;
+      let num = this.rConfig[0].num;
+      obj[num].isHide = !obj[num].isHide;
+      this.$store.commit('mobildConfig/UPDATEARR', { num: num, val: obj[num] });
+    },
     // 组件删除
     bindDelete(item, key) {
-      if (item.name == 'search_box') {
-        this.isSearch = false;
-      }
-      if (item.name == 'nav_bar') {
-        this.isTab = false;
-      }
-      if (item.name == 'home_product') {
-        this.isHomeProduct = false;
-      }
-      this.mConfig.splice(key, 1);
-      this.rConfig.splice(0, 1);
-      if (this.mConfig.length != key) {
-        this.rConfig.push(this.mConfig[key]);
-      } else {
-        if (this.mConfig.length) {
-          this.activeIndex = key - 1;
-          this.rConfig.push(this.mConfig[key - 1]);
-        } else {
-          this.showTitle();
-        }
-      }
-      // 删除第几个配置
-      this.$store.commit('mobildConfig/DELETEARRAY', item);
+      this.$confirm('确定要删除此组件吗？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      })
+        .then(() => {
+          if (item.name == 'search_box') {
+            this.isSearch = false;
+          }
+          if (item.name == 'nav_bar') {
+            this.isTab = false;
+          }
+          if (item.name == 'home_comb') {
+            this.isComb = false;
+          }
+          if (item.name == 'home_service') {
+            this.isService = false;
+          }
+          this.mConfig.splice(key, 1);
+          this.rConfig.splice(0, 1);
+          if (this.mConfig.length != key) {
+            this.rConfig.push(this.mConfig[key]);
+          } else {
+            if (this.mConfig.length) {
+              this.activeIndex = key - 1;
+              this.rConfig.push(this.mConfig[key - 1]);
+            } else {
+              this.showTitle();
+            }
+          }
+          // 删除第几个配置
+          this.$store.commit('mobildConfig/DELETEARRAY', item);
+        })
+        .catch(() => {});
     },
     // 组件返回
     config(data) {
@@ -782,6 +1021,16 @@ export default {
         list: [],
         isOpen: true,
       };
+      let goods = {
+        title: '商品组件',
+        list: [],
+        isOpen: true,
+      };
+      let user = {
+        title: '用户组件',
+        list: [],
+        isOpen: true,
+      };
       let tool = {
         title: '工具组件',
         list: [],
@@ -792,21 +1041,28 @@ export default {
           basis.list.push(el);
         }
         if (el.type == 1) {
-          if (el.name == 'home_seckill' && checkArray('seckill')) {
-            marketing.list.push(el);
-          } else if (el.name == 'home_bargain' && checkArray('bargain')) {
-            marketing.list.push(el);
-          } else if (el.name == 'home_pink' && checkArray('combination')) {
-            marketing.list.push(el);
-          } else if (el.name != 'home_seckill' && el.name != 'home_bargain' && el.name != 'home_pink') {
-            marketing.list.push(el);
-          }
+          marketing.list.push(el);
         }
         if (el.type == 2) {
           tool.list.push(el);
         }
+        if (el.type == 3) {
+          if (this.pageType !== 'home' && this.pageType !== 'user') {
+            if (el.name === 'home_product_info' || el.cname === '商品信息') {
+              goods.list.unshift(el);
+            } else {
+              goods.list.push(el);
+            }
+          }
+        }
+        if (el.type == 4) {
+          if (this.pageType !== 'home' && this.pageType !== 'detail') user.list.push(el);
+        }
       });
-      tempArr.push(basis, marketing, tool);
+      tempArr.push(basis, marketing);
+      if (this.pageType !== 'home' && this.pageType !== 'user') tempArr.push(goods);
+      if (this.pageType !== 'home' && this.pageType !== 'detail') tempArr.push(user);
+      tempArr.push(tool);
       this.leftMenu = tempArr;
     },
     // toImage(val){
@@ -820,68 +1076,142 @@ export default {
     //         this.diySaveDate(val,imgUrl)
     //     });
     // },
-    diySaveDate(val, init, name) {
-      saveDiy(init ? 0 : this.pageId, {
+    diySaveDate(val, num, title, save) {
+      let pageData = {};
+      if (['home', 'detail', 'user'].includes(this.pageType)) {
+        pageData = {
+          type: this.pageType,
+          value: val,
+          title: this.titleTxt,
+          name: this.nameTxt || '模板',
+          is_show: this.showTxt ? 1 : 0,
+          is_bg_color: this.colorTxt ? 1 : 0,
+          is_bg_pic: this.bgPic ? 1 : 0,
+          color_picker: this.colorPickerTxt,
+          bg_pic: this.picUrlTxt,
+          cover_pic: this.coverUrl,
+        };
+      } else if (['category', 'theme'].includes(this.pageType)) {
+        pageData = val;
+      }
+      let requestData = {
         type: this.pageType,
-        value: val,
-        title: this.titleTxt,
-        name: name || this.nameTxt,
-        is_show: this.showTxt ? 1 : 0,
-        is_bg_color: this.colorTxt ? 1 : 0,
-        color_picker: this.colorPickerTxt,
-        bg_pic: this.picUrlTxt,
-        bg_tab_val: this.tabValTxt,
-        is_bg_pic: this.picTxt ? 1 : 0,
-      })
+        value: pageData,
+      };
+      if (this.$route.query.page_type === 'micro') {
+        requestData.page_type = 'micro';
+      }
+      if (title) {
+        requestData.title = title;
+      }
+      if (this.$route.query.tid) {
+        requestData.tid = this.$route.query.tid;
+      }
+      themeSave(title ? 0 : this.pageId, requestData)
         .then((res) => {
-          this.loading = false;
-          if (!init) {
+          if (this.pageId != res.data.id && !title) {
+            let query = { ...this.$route.query, id: res.data.id };
+            delete query.tid; // 保存后移除 tid
+            this.$router.replace({ query });
             this.pageId = res.data.id;
           }
-          this.saveName = '';
           this.$message.success(res.msg);
+          let that = this;
+          this.nameModal = false;
+          if (num == 2) {
+            this.relLoading = false;
+            setTimeout(() => {
+              let page = this.isMicroPage
+                ? this.$routeProStr + '/setting/theme/micro_page'
+                : this.$routeProStr + '/setting/my_theme';
+              window.location.replace(page);
+            }, 2000);
+          } else {
+            this.loading = false;
+          }
+          if (this.setDirty) {
+            this.setDirty(false);
+          }
         })
         .catch((res) => {
+          this.relLoading = false;
           this.loading = false;
           this.$message.error(res.msg);
         });
     },
+    saveModal() {
+      if (!this.saveName) return this.$message.warning('请先输入模板名称');
+      this.saveConfig(1, this.saveName);
+    },
+    closeWindow() {
+      this.$msgbox({
+        title: '提示',
+        message: '关闭页面前请先保存数据，未保存的话数据会丢失',
+        showCancelButton: true,
+        cancelButtonText: '取消',
+        confirmButtonText: '确定',
+        iconClass: 'el-icon-warning',
+        confirmButtonClass: 'btn-custom-cancel',
+      })
+        .then(() => {
+          setTimeout(() => {
+            // this.saveConfig();
+            window.close();
+          }, 1000);
+        })
+        .catch(() => {});
+    },
     // 保存配置
-    saveConfig(init, name) {
+    saveConfig(num, type, save) {
       if (this.mConfig.length == 0) {
         return this.$message.error('暂未添加任何组件，保存失败！');
       }
-      this.loading = true;
+      if (num == 1) {
+        this.loading = true;
+      } else {
+        this.relLoading = true;
+      }
       let val = this.$store.state.mobildConfig.defaultArray;
-      if (!this.footActive) {
+      if (!this.footActive && this.pageType == 'home') {
         let timestamp = new Date().getTime() * 1000;
         val[timestamp] = this.$store.state.mobildConfig.pageFooter;
         this.footActive = true;
+      } else if (this.pageType == 'detail') {
+        // 获取最后一个对象的值 判断 val 不是一个空对象
+        let lastObj = val && Object.values(val).pop();
+        if (lastObj.name != 'bottomMenu') {
+          let timestamp = new Date().getTime() * 1000;
+          val[timestamp] = this.$store.state.mobildConfig.bottomMenu;
+        }
       }
       this.$nextTick(() => {
-        this.nameModal = false;
-        this.diySaveDate(val, init, name);
+        this.diySaveDate(val, num, type, save);
       });
     },
     // 获取默认配置
     getDefaultConfig() {
-      getDiyInfo(this.pageId).then(({ data }) => {
+      let id = this.pageId;
+      if (id == 0 && this.$route.query.tid) {
+        id = this.$route.query.tid;
+      }
+      themeInfo(id, this.pageType).then((res) => {
         let obj = {};
         let tempARR = [];
-        this.$store.commit('mobildConfig/titleUpdata', data.info.title);
-        this.$store.commit('mobildConfig/nameUpdata', data.info.name);
-        this.$store.commit('mobildConfig/showUpdata', data.info.is_show);
-        this.$store.commit('mobildConfig/colorUpdata', data.info.is_bg_color || 0);
-        this.$store.commit('mobildConfig/picUpdata', data.info.is_bg_pic || 0);
-        this.$store.commit('mobildConfig/pickerUpdata', data.info.color_picker || '#f5f5f5');
-        this.$store.commit('mobildConfig/radioUpdata', data.info.bg_tab_val || 0);
-        this.$store.commit('mobildConfig/picurlUpdata', data.info.bg_pic || '');
-        let newArr = this.objToArr(data.info.value);
+        let data = res.data;
+        this.$store.commit('mobildConfig/titleUpdata', data.title);
+        this.$store.commit('mobildConfig/nameUpdata', data.name);
+        this.$store.commit('mobildConfig/showUpdata', data.is_show);
+        this.$store.commit('mobildConfig/colorUpdata', data.is_bg_color || 0);
+        this.$store.commit('mobildConfig/picUpdata', data.is_bg_pic || 0);
+        this.$store.commit('mobildConfig/pickerUpdata', data.color_picker || '#f5f5f5');
+        this.$store.commit('mobildConfig/radioUpdata', data.bg_tab_val || 0);
+        this.$store.commit('mobildConfig/picurlUpdata', data.bg_pic || '');
+        this.diyStatus = data.status;
+        let newArr = this.objToArr(data.value);
 
         function sortNumber(a, b) {
           return a.timestamp - b.timestamp;
         }
-
         newArr.sort(sortNumber);
         newArr.map((el, index) => {
           if (el.name == 'headerSerch') {
@@ -890,12 +1220,19 @@ export default {
           if (el.name == 'tabNav') {
             this.isTab = true;
           }
-          if (el.name == 'promotionList') {
-            this.isHomeProduct = true;
+          if (el.name == 'homeComb') {
+            this.isComb = true;
+          }
+          if (el.name == 'customerService') {
+            this.isService = true;
           }
           if (el.name == 'goodList') {
-            let storage = window.localStorage;
-            storage.setItem(el.timestamp, el.selectConfig.activeValue);
+            // let storage = window.localStorage;
+            // storage.setItem(el.timestamp, el.selectConfig.activeValue);
+          }
+          if (el.name == 'bottomMenu') {
+            this.$store.commit('mobildConfig/UPBOTTOMMENU', el);
+            return;
           }
           el.id = 'id' + el.timestamp;
           this.lConfig.map((item, j) => {
@@ -914,16 +1251,15 @@ export default {
             }
           });
         });
-
         let objs = newArr[newArr.length - 1];
 
-        if (objs.name == 'pageFoot') {
+        if (this.pageType == 'home' && objs.name == 'pageFoot') {
           this.$store.commit('mobildConfig/footPageUpdata', objs);
+          this.showTitle();
+        } else if (this.pageType == 'detail' && objs.name != 'bottomMenu') {
+          this.$store.commit('mobildConfig/bottomMenuUpdata', objs);
+          // this.showBottomMenu();
         }
-        this.showTitle();
-        // this.rConfig = [];
-        // this.activeIndex = 0;
-        // this.rConfig.push(this.mConfig[0]);
       });
     },
     categoryList() {
@@ -936,23 +1272,26 @@ export default {
       if (this.pageId == 0) {
         this.$message.error('新增页面，无法重置');
       } else {
-        this.$msgbox({
-          title: '提示',
-          message: '重置会恢复到上次保存的数据，确定不保存当前操作吗？',
-          showCancelButton: true,
-          cancelButtonText: '取消',
+        this.$confirm('此操作将清空模板内容, 是否继续?', '提示', {
           confirmButtonText: '确定',
-          iconClass: 'el-icon-warning',
-          confirmButtonClass: 'btn-custom-cancel',
-        })
-          .then(() => {
-            this.mConfig = [];
-            this.rConfig = [];
-            this.activeIndex = -99;
-            this.getDefaultConfig();
-          })
-          .catch(() => {});
+          cancelButtonText: '取消',
+          type: 'warning',
+        }).then((res) => {
+          this.mConfig = [];
+          this.rConfig = [];
+          this.activeIndex = -99;
+          this.getDefaultConfig();
+        });
       }
+    },
+    getBadgeText(val) {
+      const map = {
+        user: '用户',
+        article: '文章',
+        coupon: '优惠券',
+        goods: '商品',
+      };
+      return map[val] || '';
     },
   },
   beforeDestroy() {
@@ -983,7 +1322,8 @@ export default {
 .el-main {
   padding: 0px !important;
 }
-
+</style>
+<style scoped>
 .header-title {
   background: var(--prev-color-primary);
   border-radius: 0;
@@ -998,6 +1338,20 @@ export default {
 <style scoped lang="scss">
 ::v-deep .el-card__body {
   padding: 0;
+}
+::v-deep {
+  .icondel_1,
+  .upload-box {
+    cursor: pointer;
+  }
+  .el-checkbox,
+  .el-radio {
+    margin-bottom: 15px;
+    margin-right: 15px;
+  }
+}
+.c_label {
+  margin-top: 0;
 }
 ::v-deep .el-button--small {
   // border-radius: 0;
@@ -1024,7 +1378,9 @@ export default {
   color: var(--prev-color-primary);
   border-color: var(--prev-color-primary);
 }
-
+// ::v-deep .c_row-item {
+//   margin-bottom: 10px;
+// }
 .ysize {
   background-size: 100%;
 }
@@ -1040,9 +1396,55 @@ export default {
 .noRepeat {
   background-repeat: no-repeat;
 }
-
+.fl_header {
+  color: #fff;
+  .f-title {
+    position: relative;
+  }
+  .return {
+    color: #fff;
+    margin-right: 34px;
+    margin-left: 5px;
+    &::after {
+      content: ' ';
+      position: absolute;
+      width: 1px;
+      height: 16px;
+      background-color: rgba(238, 238, 238, 0.5);
+      left: 65px;
+      top: 50%;
+      margin-top: -8px;
+    }
+  }
+  .iconfont {
+    color: #fff;
+  }
+  .f_title {
+    &:hover {
+      .return {
+        color: rgba(255, 255, 255, 0.8);
+      }
+      .iconfanhui {
+        color: rgba(255, 255, 255, 0.8);
+      }
+    }
+    .name {
+      font-size: 16px;
+    }
+    .iconfont {
+      margin-left: 10px;
+      color: #fff;
+    }
+  }
+}
 .wrapper-con {
   position: relative;
+  flex: 1;
+  background: #f0f2f5;
+  display: flex;
+  justify-content: center;
+  padding-top: 40px;
+  height: 100%;
   .acticons {
     position: absolute;
     right: 20px;
@@ -1064,32 +1466,39 @@ export default {
   cursor: pointer;
   position: absolute;
   left: 50%;
-  margin-left: 245px;
+  margin-left: 235px;
 
   .data {
+    display: block;
     margin-top: 20px;
     color: #282828;
     background-color: #fff;
     width: 94px;
     text-align: center;
     height: 32px;
-    line-height: 32px;
     border-radius: 3px;
     font-size: 12px;
+    margin-left: 0 !important;
+    border: none;
   }
 
   .data:hover {
-    background-color: #2d8cf0;
+    color: var(--prev-color-primary);
+    border: none;
+    box-shadow: 0px 1px 6px 0px rgba(0, 0, 0, 0.03);
+  }
+  .data:focus {
     color: #fff;
-    border: 0;
+    background-color: var(--prev-color-primary);
+    border: 1px solid var(--prev-color-primary);
   }
 }
 
 .overflowy {
-  overflow-y: scroll;
+  margin-right: 4px;
 
   .picture {
-    width: 379px;
+    width: 375px;
     height: 20px;
     margin: 0 auto;
     background-color: #fff;
@@ -1148,11 +1557,6 @@ export default {
   display: flex;
   justify-content: space-between;
   margin-bottom: 10px;
-}
-
-.iconfont-diy {
-  font-size: 24px;
-  color: var(--prev-color-primary);
 }
 
 .diy-wrapper {
@@ -1283,7 +1687,7 @@ export default {
 
         &:hover {
           box-shadow: 0 0 5px 0 rgba(24, 144, 255, 0.3);
-          border-right: 5px;
+          border-radius: 5px;
           transform: scale(1.1);
           transition: all 0.2s;
         }
@@ -1302,7 +1706,7 @@ export default {
 
     .page-foot {
       position: relative;
-      width: 379px;
+      width: 375px;
       margin: 0 auto 20px auto;
 
       .delete-box {
@@ -1310,7 +1714,7 @@ export default {
         position: absolute;
         left: -2px;
         top: 0;
-        width: 383px;
+        width: 379px;
         height: 100%;
         border: 2px dashed var(--prev-color-primary);
         padding: 10px 0;
@@ -1343,7 +1747,7 @@ export default {
       font-size: 15px;
       color: #333333;
       text-align: center;
-      width: 379px;
+      width: 375px;
       margin: 0 auto;
 
       .delete-box {
@@ -1351,7 +1755,7 @@ export default {
         position: absolute;
         left: -2px;
         top: 0;
-        width: 383px;
+        width: 379px;
         height: 100%;
         border: 2px dashed var(--prev-color-primary);
         padding: 10px 0;
@@ -1396,7 +1800,7 @@ export default {
     .scroll-box {
       flex: 1;
       background-color: #fff;
-      width: 379px;
+      width: 375px;
       margin: 0 auto;
       padding-top: 1px;
     }
@@ -1408,13 +1812,71 @@ export default {
       .mConfig-item {
         position: relative;
         cursor: move;
+        &.hide {
+          &::before {
+            position: absolute;
+            content: '已隐藏';
+            background: rgba(0, 0, 0, 0.5);
+            width: 100%;
+            height: 100%;
+            z-index: 99;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+        }
+        .delete-name.on {
+          background: var(--prev-color-primary-light-3);
+          color: #fff;
+          &::before {
+            background: var(--prev-color-primary-light-3);
+          }
+        }
+        .delete-name {
+          position: absolute;
+          top: 6px;
+          background: #fff;
+          left: -100px;
+          width: 86px;
+          height: 32px;
+          text-align: center;
+          line-height: 32px;
+          font-size: 13px;
+          color: #666;
+          border-radius: 3px;
 
+          .custom-badge {
+            position: absolute;
+            top: -6px;
+            left: -16px;
+            background: #ffaa18;
+            color: #fff;
+            font-size: 10px;
+            padding: 0 5px;
+            border-radius: 3px;
+            line-height: 14px;
+            z-index: 10;
+          }
+
+          &::before {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #fff;
+            transform: rotate(45deg);
+            top: 50%;
+            right: -5px;
+            margin-top: -5px;
+          }
+        }
         .delete-box {
           display: none;
           position: absolute;
           left: -2px;
           top: 0;
-          width: 383px;
+          width: 379px;
           height: 100%;
           border: 2px dashed var(--prev-color-primary);
 
@@ -1424,7 +1886,6 @@ export default {
             right: -43px;
             top: 0;
             width: 36px;
-            height: 111px;
             border-radius: 4px;
             background-color: var(--prev-color-primary);
             cursor: pointer;
@@ -1438,6 +1899,7 @@ export default {
             }
             .iconfont {
               padding: 5px 0;
+              color: #fff;
 
               &.on {
                 opacity: 0.4;
@@ -1471,6 +1933,7 @@ export default {
     height: 100%;
     border-radius: 4px;
     overflow: scroll;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
 
     ::v-deep .ivu-tabs-bar {
@@ -1549,5 +2012,22 @@ export default {
     width: 100%;
     height: 100%;
   }
+}
+.contxt {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+
+.contxt:hover ::-webkit-scrollbar-thumb {
+  display: block;
+}
+.icon {
+  width: 28px;
+  height: 28px;
+  // vertical-align: -0.15em;
+  fill: currentColor;
+  overflow: hidden;
 }
 </style>

@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -13,6 +13,7 @@ namespace app\services\user;
 
 use app\dao\user\UserMoneyDao;
 use app\services\BaseServices;
+use app\services\order\OtherOrderServices;
 use app\services\order\StoreOrderServices;
 use crmeb\exceptions\AdminException;
 
@@ -27,6 +28,13 @@ class UserMoneyServices extends BaseServices
             'title' => '余额支付购买商品',
             'type' => 'pay_product',
             'mark' => '余额支付{%num%}元购买商品',
+            'status' => 1,
+            'pm' => 0
+        ],
+        'pay_member' => [
+            'title' => '余额支付购买会员',
+            'type' => 'pay_member',
+            'mark' => '余额支付{%num%}元购买会员',
             'status' => 1,
             'pm' => 0
         ],
@@ -111,9 +119,10 @@ class UserMoneyServices extends BaseServices
      * @param int|string|array $number
      * @param int|string $balance
      * @param $linkId
+     * @param string $mark
      * @return bool|mixed
      */
-    public function income(string $type, int $uid, $number, $balance, $linkId)
+    public function income(string $type, int $uid, $number, $balance, $linkId, string $mark = '')
     {
         $data = $this->incomeData[$type] ?? null;
         if (!$data) {
@@ -129,10 +138,10 @@ class UserMoneyServices extends BaseServices
             }, $key);
             $value = array_values($number);
             $data['number'] = $number['number'] ?? 0;
-            $data['mark'] = str_replace($key, $value, $data['mark']);
+            $data['mark'] = $mark == '' ? str_replace($key, $value, $data['mark']) : $mark;
         } else {
             $data['number'] = $number;
-            $data['mark'] = str_replace(['{%num%}'], $number, $data['mark']);
+            $data['mark'] = $mark == '' ? str_replace(['{%num%}'], $number, $data['mark']) : $mark;
         }
         $data['add_time'] = time();
 
@@ -162,12 +171,16 @@ class UserMoneyServices extends BaseServices
         $orderServices = app()->make(StoreOrderServices::class);
         /** @var UserRechargeServices $rechargeServices */
         $rechargeServices = app()->make(UserRechargeServices::class);
+        /** @var OtherOrderServices $otherOrderServices */
+        $otherOrderServices = app()->make(OtherOrderServices::class);
         foreach ($list as &$item) {
             $item['nickname'] = $nicknameArr[$item['uid']];
             if ($item['type'] == 'pay_product' || $item['type'] == 'pay_product_refund') {
                 $item['relation'] = $orderServices->value(['id' => $item['link_id']], 'order_id');
             } elseif ($item['type'] == 'recharge' || $item['type'] == 'recharge_refund') {
                 $item['relation'] = $rechargeServices->value(['id' => $item['link_id']], 'order_id');
+            } elseif ($item['type'] == 'pay_member') {
+                $item['relation'] = $otherOrderServices->value(['id' => $item['link_id']], 'order_id');
             } else {
                 $item['relation'] = $status[$item['type']];
             }
@@ -188,7 +201,7 @@ class UserMoneyServices extends BaseServices
         if ($this->dao->update($id, ['mark' => $mark])) {
             return true;
         } else {
-            throw new AdminException(100025);
+            throw new AdminException('备注失败');
         }
     }
 
@@ -317,9 +330,9 @@ class UserMoneyServices extends BaseServices
      */
     public function getType($where)
     {
-        $bing_xdata = ['系统减少', '充值退款', '购买商品'];
-        $color = ['#64a1f4', '#3edeb5', '#70869f'];
-        $data = ['system_sub', 'recharge_refund', 'pay_product'];
+        $bing_xdata = ['系统减少', '充值退款', '购买商品', '购买会员'];
+        $color = ['#64a1f4', '#3edeb5', '#70869f', '#ffc653'];
+        $data = ['system_sub', 'recharge_refund', 'pay_product', 'pay_member'];
         $bing_data = [];
         foreach ($data as $key => $item) {
             $bing_data[] = [

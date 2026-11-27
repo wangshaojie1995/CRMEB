@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -34,6 +34,10 @@ use app\jobs\OtherOrderJob;
  */
 class OtherOrderServices extends BaseServices
 {
+    /**
+     * @var OtherOrderDao
+     */
+    protected $dao;
 
     /**
      * 初始化，获得dao层句柄
@@ -52,7 +56,7 @@ class OtherOrderServices extends BaseServices
      */
     public function addOtherOrderData(array $data)
     {
-        if (!$data) throw new ApiException(100026);
+        if (!$data) throw new ApiException('数据不存在');
         $add = [
             'uid' => $data['uid'],
             'type' => $data['type'] ?? 1,
@@ -105,7 +109,6 @@ class OtherOrderServices extends BaseServices
             $record = $this->dao->getOneByWhere(['uid' => $uid, 'is_free' => 1]);
             if ($record) {
                 $freeConfig['is_record'] = 1;
-
             }
         }
         $registerTime = $this->TimeConvert(['start_time' => date('Y-m-d H:i:s', $userInfo['add_time']), 'end_time' => date('Y-m-d H:i:s', time())]);
@@ -124,39 +127,39 @@ class OtherOrderServices extends BaseServices
     public function TimeConvert($timeKey, $isNum = false)
     {
         switch ($timeKey) {
-            case "today" :
+            case "today":
                 $data['start_time'] = date('Y-m-d 00:00:00', time());
                 $data['end_time'] = date('Y-m-d 23:59:59', time());
                 $data['days'] = 1;
                 break;
-            case "yestoday" :
+            case "yestoday":
                 $data['start_time'] = date('Y-m-d 00:00:00', strtotime('-1 day'));
                 $data['end_time'] = date('Y-m-d 23:59:59', strtotime('-1 day'));
                 $data['days'] = 1;
                 break;
-            case "last_month" :
+            case "last_month":
                 $data['start_time'] = date('Y-m-01 00:00:00', strtotime('-1 month'));
                 $data['end_time'] = date('Y-m-t 23:59:59', strtotime('-1 month'));
                 $data['days'] = 30;
                 break;
-            case "month" :
+            case "month":
                 $data['start_time'] = $month_start_time = date('Y-m-01 00:00:00', strtotime(date("Y-m-d")));
                 $data['end_time'] = date('Y-m-d 23:59:59', strtotime("$month_start_time +1 month -1 day"));
                 $data['days'] = 30;
                 break;
-            case "year" :
+            case "year":
                 $data['start_time'] = date('Y-01-01 00:00:00', time());
                 $data['end_time'] = date('Y-12-t 23:59:59', time());
                 $data['days'] = 365;
                 break;
-            case "last_year" :
+            case "last_year":
                 $data['start_time'] = date('Y-01-01 00:00:00', strtotime('-1 year'));
                 $data['end_time'] = date('Y-12-t 23:59:59', strtotime('-1 year'));
                 $data['days'] = 365;
                 break;
-            case 30 :
-            case 15 :
-            case 7 :
+            case 30:
+            case 15:
+            case 7:
                 if (!$isNum) {
                     $data['start_time'] = date("Y-m-d 00:00:00", strtotime("-$timeKey day"));
                     $data['end_time'] = date('Y-m-d 23:59:59', time());
@@ -182,7 +185,6 @@ class OtherOrderServices extends BaseServices
                     $data['end_time'] = $timeKey['start_time'];
                     $data['days'] = $days;
                 }
-
         }
         return $data;
     }
@@ -225,7 +227,7 @@ class OtherOrderServices extends BaseServices
             'member_code' => "",
         ];
         if ($type != 3) { //区别 0：免费领取会员 1：购买会员  2：卡密领取会员  3：线下付款
-            if (!$memberType) throw new ApiException(410228);
+            if (!$memberType) throw new ApiException('会员类型不存在');
             list($memberPrice, $isFree, $isPermanent, $overdueTime, $type, $newMemberRight) = $this->checkPayMemberType($memberType, $payPrice, $type, $uid, $mcId);
             $orderInfo['member_price'] = $memberPrice;
             $orderInfo['money'] = $memberPrice;
@@ -244,7 +246,7 @@ class OtherOrderServices extends BaseServices
         }
         $memberOrder = $this->addOtherOrderData($orderInfo);
         if (!$memberOrder) {
-            throw new ApiException(410200);
+            throw new ApiException('订单生成失败');
         }
         /** @var OtherOrderStatusServices $statusService */
         $statusService = app()->make(OtherOrderStatusServices::class);
@@ -266,14 +268,13 @@ class OtherOrderServices extends BaseServices
     public function zeroYuanPayment($orderInfo)
     {
         if ($orderInfo['paid']) {
-            throw new ApiException(410174);
+            throw new ApiException('订单已支付');
         }
         if ($orderInfo['member_type'] != 'free') {
-            throw new ApiException(410216);
+            throw new ApiException('支付失败');
         }
-        $res = $this->paySuccess($orderInfo, 'yue');//余额支付成功
+        $res = $this->paySuccess($orderInfo, 'yue'); //余额支付成功
         return $res;
-
     }
 
     /**
@@ -293,9 +294,9 @@ class OtherOrderServices extends BaseServices
         $type = 'pay_member';
         $res1 = true;
         switch ($orderInfo['type']) {
-            case 0 :
-            case 1 :
-            case 2 :
+            case 0:
+            case 1:
+            case 2:
                 $type = "pay_member";
                 $res1 = $userServices->setMemberOverdueTime($orderInfo['vip_day'], $orderInfo['uid'], 1, $orderInfo['member_type']);
                 break;
@@ -339,7 +340,7 @@ class OtherOrderServices extends BaseServices
         //购买付费会员返佣设置
         if (sys_config('member_brokerage', 0) == 1 && sys_config('brokerage_func_status', 0) == 1) {
             $spread_one = sys_config('is_self_brokerage') ? $orderInfo['uid'] : $userServices->getSpreadUid($orderInfo['uid']);
-            $spread_two = sys_config('brokerage_level', 2) == 2 ? $userServices->getSpreadUid($spread_one) : 0;
+            $spread_two = sys_config('brokerage_level', 2) == 2 ? $userServices->getSpreadUid($spread_one, [], false) : 0;
             $spread_one_price = bcmul((string)$orderInfo['pay_price'], (string)bcdiv((string)sys_config('store_brokerage_ratio', 0), '100', 4), 2);
             $spread_two_price = bcmul((string)$orderInfo['pay_price'], (string)bcdiv((string)sys_config('store_brokerage_two', 0), '100', 4), 2);
             if ($spread_one && $spread_one_price > 0 && $userServices->checkUserPromoter($spread_one)) $this->memberBrokerage($spread_one, $spread_one_price, sys_config('is_self_brokerage') ? 'get_self_member_brokerage' : 'get_member_brokerage', $orderInfo);
@@ -348,7 +349,7 @@ class OtherOrderServices extends BaseServices
 
         $orderInfo['pay_type'] = $paytype;
         // 小程序订单服务
-        event('OrderShippingListener', ['member', $orderInfo, 3, '', '']);
+        event('OrderShippingListener', [$type == 'pay_member' ? 'member' : 'offline_scan', $orderInfo, 3, '', '']);
         return false !== $res;
     }
 
@@ -414,19 +415,19 @@ class OtherOrderServices extends BaseServices
         /** @var UserServices $userService */
         $userService = app()->make(UserServices::class);
         $userInfo = $userService->get($uid);
-        if ($userInfo['is_money_level'] > 0 && $userInfo['is_ever_level'] > 0) throw new ApiException(410229);
+        if ($userInfo['is_money_level'] > 0 && $userInfo['is_ever_level'] > 0) throw new ApiException('您已是永久会员无需再购买');
         $newMemberRight = $memberCardService->getMemberTypeValue();
-        if (!array_key_exists($mcId, $newMemberRight)) throw new ApiException(410230);
+        if (!array_key_exists($mcId, $newMemberRight)) throw new ApiException('该会员卡暂时无法购买');
         $price = $newMemberRight[$mcId]['pre_price'];
-        if ($payPrice != $price || ($memberType != 'free' && $payPrice <= 0)) throw new ApiException(100100);
-        if ($memberType == 'free' && $newMemberRight[$mcId]['vip_day'] <= 0) throw new ApiException(100100);
+        if ($payPrice != $price || ($memberType != 'free' && $payPrice <= 0)) throw new ApiException('参数错误');
+        if ($memberType == 'free' && $newMemberRight[$mcId]['vip_day'] <= 0) throw new ApiException('参数错误');
         switch ($memberType) {
-            case "free"://免费会员
+            case "free": //免费会员
                 $isCanGetFree = $this->isCanGetFree($uid);
-                if ($isCanGetFree['is_record'] == 1) throw new ApiException(410231);
+                if ($isCanGetFree['is_record'] == 1) throw new ApiException('您已经领取过免费会员');
                 $memberPrice = 0.00; //会员卡价格
-                $isFree = 1;//代表免费
-                $isPermanent = 0;//代表非永久
+                $isFree = 1; //代表免费
+                $isPermanent = 0; //代表非永久
                 $overdueTime = bcadd(bcmul(abs($newMemberRight[$mcId]['vip_day']), "86400", 0), time(), 0);
                 break;
             case "month":
@@ -442,10 +443,10 @@ class OtherOrderServices extends BaseServices
                 $memberPrice = $price;
                 $isFree = 0;
                 $isPermanent = 1;
-                $overdueTime = -1;
+                $overdueTime = 0;
                 break;
             default:
-                throw new ApiException(410232);
+                throw new ApiException('此类型会员卡暂未开售');
         }
         //return compact('member_price', 'is_free', 'is_permanent', 'overdue_time', 'type');
         return [$memberPrice, $isFree, $isPermanent, $overdueTime, $type, $newMemberRight];
@@ -459,9 +460,9 @@ class OtherOrderServices extends BaseServices
     public function getMemberMoneyByWhere(array $where, string $sumField, string $selectType, string $group = "")
     {
         switch ($selectType) {
-            case "sum" :
+            case "sum":
                 return $this->dao->getWhereSumField($where, $sumField);
-            case "group" :
+            case "group":
                 return $this->dao->getGroupField($where, $sumField, $group);
         }
     }
@@ -504,13 +505,13 @@ class OtherOrderServices extends BaseServices
                 $v['phone'] = $userInfo[$v['uid']]['phone'] ?? '';
                 $v['nickname'] = $userInfo[$v['uid']]['nickname'] ?? '';
                 switch ($v['pay_type']) {
-                    case "yue" :
+                    case "yue":
                         $v['pay_type'] = "余额";
                         break;
-                    case "weixin" :
+                    case "weixin":
                         $v['pay_type'] = "微信";
                         break;
-                    case "alipay" :
+                    case "alipay":
                         $v['pay_type'] = "支付宝";
                         break;
                 }
@@ -551,24 +552,24 @@ class OtherOrderServices extends BaseServices
             $shipInfo = array_column($shipInfo, 'title', 'type');
             $shipInfo['owner'] = '自定义';
             foreach ($list as &$v) {
-                $v['member_type'] = $v['member_type'] ? $shipInfo[$v['member_type']] : '其他';
+                $v['member_type'] = $v['member_type'] ? $shipInfo[$v['member_type']] ?? '其他' : '其他';
                 $v['pay_time'] = date('Y-m-d H:i:s', $v['pay_time']);
                 $v['add_time'] = date('Y-m-d H:i:s', $v['add_time']);
                 $v['overdue_time'] = date('Y-m-d H:i:s', $v['overdue_time']);
                 switch ($v['pay_type']) {
-                    case "yue" :
+                    case "yue":
                         $v['pay_type'] = "余额";
                         break;
-                    case "weixin" :
+                    case "weixin":
                         $v['pay_type'] = "微信";
                         break;
-                    case "alipay" :
+                    case "alipay":
                         $v['pay_type'] = "支付宝";
                         break;
                     case 'allinpay':
                         $v['pay_type'] = "通联支付";
                         break;
-                    case "admin" :
+                    case "admin":
                         $v['pay_type'] = "后台赠送";
                         break;
                 }
@@ -584,5 +585,4 @@ class OtherOrderServices extends BaseServices
         $count = $this->dao->count($where);
         return compact('list', 'count');
     }
-
 }

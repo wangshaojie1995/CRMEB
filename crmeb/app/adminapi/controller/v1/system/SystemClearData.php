@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -75,7 +75,7 @@ class SystemClearData extends AuthController
             case 'user':
                 return $this->userRelevantData();
             default:
-                return app('json')->fail(100100);
+                return app('json')->fail('参数错误');
         }
     }
 
@@ -93,18 +93,22 @@ class SystemClearData extends AuthController
         }
         $services->delete(2, 'module_type');
         $this->services->clearData(['qrcode'], true);
-        return app('json')->success(100046);
+        return app('json')->success('清除数据成功');
     }
 
     /**
      * 清除回收站商品
      * @return mixed
      */
-    public function recycleProduct()
+    public function recycleProduct($id = 0)
     {
         /** @var StoreProductServices $product */
         $product = app()->make(StoreProductServices::class);
-        $ids = $product->getColumn(['is_del' => 1], 'id');
+        if ($id) {
+            $ids = [$id];
+        } else {
+            $ids = $product->getColumn(['is_del' => 1], 'id');
+        }
         //清除规格表数据
         /** @var StoreProductAttrServices $ProductAttr */
         $productAttr = app()->make(StoreProductAttrServices::class);
@@ -145,8 +149,13 @@ class SystemClearData extends AuthController
 
         /** @var StoreProductServices $services */
         $services = app()->make(StoreProductServices::class);
-        $services->delete(1, 'is_del');
-        return app('json')->success(100046);
+        if ($id) {
+            $services->delete($id);
+            return true;
+        } else {
+            $services->delete(1, 'is_del');
+            return app('json')->success('清除数据成功');
+        }
     }
 
     /**
@@ -214,7 +223,7 @@ class SystemClearData extends AuthController
             'wechat_user',
         ], true);
         $this->services->delDirAndFile('./public/uploads/store/comment');
-        return app('json')->success(100046);
+        return app('json')->success('清除数据成功');
     }
 
     /**
@@ -326,7 +335,7 @@ class SystemClearData extends AuthController
             'wechat_reply',
             'wechat_user',
         ], true);
-        return app('json')->success(100046);
+        return app('json')->success('清除数据成功');
     }
 
     /**
@@ -336,7 +345,7 @@ class SystemClearData extends AuthController
     public function categoryData()
     {
         $this->services->clearData(['store_category'], true);
-        return app('json')->success(100046);
+        return app('json')->success('清除数据成功');
     }
 
     /**
@@ -359,7 +368,7 @@ class SystemClearData extends AuthController
             'store_order_status',
             'store_pink',
         ], true);
-        return app('json')->success(100046);
+        return app('json')->success('清除数据成功');
     }
 
     /**
@@ -376,7 +385,7 @@ class SystemClearData extends AuthController
             'store_service_speechcraft'
         ], true);
         $this->services->delDirAndFile('./public/uploads/store/service');
-        return app('json')->success(100046);
+        return app('json')->success('清除数据成功');
     }
 
     /**
@@ -397,7 +406,7 @@ class SystemClearData extends AuthController
             'wechat_reply'
         ], true);
         $this->services->delDirAndFile('./public/uploads/wechat');
-        return app('json')->success(100046);
+        return app('json')->success('清除数据成功');
     }
 
     /**
@@ -411,7 +420,7 @@ class SystemClearData extends AuthController
             'system_attachment_category'
         ], true);
         $this->services->delDirAndFile('./public/uploads/');
-        return app('json')->success(100046);
+        return app('json')->success('清除数据成功');
     }
 
     //清除内容分类
@@ -422,7 +431,7 @@ class SystemClearData extends AuthController
             'article',
             'article_content'
         ], true);
-        return app('json')->success(100046);
+        return app('json')->success('清除数据成功');
     }
 
     //清除系统记录
@@ -432,7 +441,7 @@ class SystemClearData extends AuthController
             'system_notice_admin',
             'system_log'
         ], true);
-        return app('json')->success(100046);
+        return app('json')->success('清除数据成功');
     }
 
     /**
@@ -445,10 +454,10 @@ class SystemClearData extends AuthController
             ['url', '']
         ], true);
         if (!$url)
-            return app('json')->fail(400304);
+            return app('json')->fail('请输入需要更换的域名');
         if (!verify_domain($url))
-            return app('json')->fail(400305);
+            return app('json')->fail('域名不合法');
         $this->services->replaceSiteUrl($url);
-        return app('json')->success(400306);
+        return app('json')->success('替换成功');
     }
 }

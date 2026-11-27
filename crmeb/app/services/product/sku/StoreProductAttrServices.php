@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -51,13 +51,16 @@ class StoreProductAttrServices extends BaseServices
         $this->dao->del($id, $type);
         $storeProductAttrResultServices->del($id, $type);
         $storeProductAttrValueServices->del($id, $type);
+        foreach ($data['attrGroup'] as &$attr) {
+            $attr['attr_values'] = array_column($attr['attr_values'], 'value');
+        }
         $this->dao->saveAll($data['attrGroup']);
         $storeProductAttrResultServices->setResult($data['result'], $id, $type);
         $productVipPrice = 0;
         if (isset($data['valueGroup']) && $data['valueGroup']) {
             $detailTemp = array_column($data['valueGroup'], 'vip_price');
             if ($detailTemp) {
-                if ($is_vip && in_array(0, $detailTemp)) throw new AdminException(400588);
+                if ($is_vip && in_array(0, $detailTemp)) throw new AdminException('会员价格不能为0');
                 $detailTemp = array_diff($detailTemp, [0]);
                 if ($detailTemp) {
                     $productVipPrice = min($detailTemp);
@@ -69,7 +72,7 @@ class StoreProductAttrServices extends BaseServices
         }
         if ($is_virtual == 0 || $is_virtual == 2) {
             if ($is_virtual == 2 && in_array(0, array_column($data['valueGroup'], 'coupon_id'))) {
-                throw new AdminException(400589);
+                throw new AdminException('虚拟优惠券商品请选择优惠券');
             }
             return $storeProductAttrValueServices->saveAll($data['valueGroup']);
         } else {
@@ -78,24 +81,26 @@ class StoreProductAttrServices extends BaseServices
             $cardStock = 0;
             foreach ($data['valueGroup'] as &$item) {
                 $res = $storeProductAttrValueServices->save($item);
-                if ($item['is_virtual'] && count($item['virtual_list']) && !$item['coupon_id'] && $item['disk_info'] == '') {
+                if ($item['is_virtual'] && !$item['coupon_id'] && $item['disk_info'] == '') {
                     $productVirtual->delete(['product_id' => $id, 'attr_unique' => $item['unique'], 'uid' => 0]);
-                    $sales = $productVirtual->count(['product_id' => $id, 'attr_unique' => $item['unique']]);
-                    foreach ($item['virtual_list'] as &$items) {
-                        $data = [
-                            'product_id' => $id,
-                            'attr_unique' => $res->unique,
-                            'card_no' => $items['key'],
-                            'card_pwd' => $items['value'],
-                            'card_unique' => md5($res->unique . ',' . $items['key'] . ',' . $items['value'])
-                        ];
-                        if (!$productVirtual->count(['card_no' => $items['key'], 'card_pwd' => $items['value']])) {
-                            $productVirtual->save($data);
+                    if (count($item['virtual_list'])) {
+                        $sales = $productVirtual->count(['product_id' => $id, 'attr_unique' => $item['unique']]);
+                        foreach ($item['virtual_list'] as &$items) {
+                            $data = [
+                                'product_id' => $id,
+                                'attr_unique' => $res->unique,
+                                'card_no' => $items['key'],
+                                'card_pwd' => $items['value'],
+                                'card_unique' => md5($res->unique . ',' . $items['key'] . ',' . $items['value'])
+                            ];
+                            if (!$productVirtual->count(['card_no' => $items['key'], 'card_pwd' => $items['value']])) {
+                                $productVirtual->save($data);
+                            }
                         }
+                        $allStock = $productVirtual->count(['product_id' => $id, 'attr_unique' => $res->unique]);
+                        $storeProductAttrValueServices->update(['id' => $res['id']], ['stock' => $allStock - $sales, 'sales' => $sales]);
+                        $cardStock = $cardStock + ($allStock - $sales);
                     }
-                    $allStock = $productVirtual->count(['product_id' => $id, 'attr_unique' => $res->unique]);
-                    $storeProductAttrValueServices->update(['id' => $res['id']], ['stock' => $allStock - $sales, 'sales' => $sales]);
-                    $cardStock = $cardStock + ($allStock - $sales);
                 }
             }
             if ($cardStock > 0) $storeProductService->update($id, ['stock' => $cardStock]);
@@ -162,6 +167,19 @@ class StoreProductAttrServices extends BaseServices
                 }
             }
         }
+        $attrResult = app()->make(StoreProductAttrResultServices::class)->getResult(['product_id' => $id, 'type' => $typeId]);
+        $attrPics = [];
+        foreach ($attrResult['attr'] as $resultAttr) {
+            foreach ($resultAttr['detail'] as $detail) {
+                if (is_string($detail)) {
+                    $detail = [
+                        'value' => $detail,
+                        'pic' => '',
+                    ];
+                }
+                $attrPics[$resultAttr['value']][$detail['value']] = $detail['pic'] ?? '';
+            }
+        }
         foreach ($attrDetail as $k => $v) {
             $attr = $v['attr_values'];
             //活动商品只展示参与活动sku
@@ -172,9 +190,9 @@ class StoreProductAttrServices extends BaseServices
             foreach ($attr as $kk => $vv) {
                 $attrDetail[$k]['attr_value'][$kk]['attr'] = $vv;
                 $attrDetail[$k]['attr_value'][$kk]['check'] = false;
+                $attrDetail[$k]['attr_value'][$kk]['pic'] = $attrPics[$v['attr_name']][$vv];
             }
         }
         return [$attrDetail, $values];
     }
-
 }

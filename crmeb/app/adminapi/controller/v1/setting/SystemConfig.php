@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -14,6 +14,7 @@ use app\adminapi\controller\AuthController;
 use app\Request;
 use app\services\system\config\SystemConfigServices;
 use app\services\system\config\SystemConfigTabServices;
+use app\services\system\SystemPemServices;
 use crmeb\services\CacheService;
 use crmeb\services\easywechat\orderShipping\MiniOrderService;
 use think\facade\App;
@@ -52,7 +53,7 @@ class SystemConfig extends AuthController
             ['status', -1]
         ]);
         if (!$where['tab_id'] && $where['config_name'] == '') {
-            return app('json')->fail(100100);
+            return app('json')->fail('参数错误');
         }
         if ($where['status'] == -1) {
             unset($where['status']);
@@ -102,24 +103,24 @@ class SystemConfig extends AuthController
             ['status', 0]
         ]);
         if (is_array($data['config_tab_id'])) $data['config_tab_id'] = end($data['config_tab_id']);
-        if (!$data['info']) return app('json')->fail(400274);
-        if (!$data['menu_name']) return app('json')->fail(400275);
-        if (!$data['desc']) return app('json')->fail(400276);
+        if (!$data['info']) return app('json')->fail('请输入配置名称');
+        if (!$data['menu_name']) return app('json')->fail('请输入字段名称');
+        if (!$data['desc']) return app('json')->fail('请输入配置简介');
         if ($data['sort'] < 0) {
             $data['sort'] = 0;
         }
         if ($data['type'] == 'text') {
-            if (!$data['width']) return app('json')->fail(400277);
-            if ($data['width'] <= 0) return app('json')->fail(400278);
+            if (!$data['width']) return app('json')->fail('请输入文本框的宽度');
+            if ($data['width'] <= 0) return app('json')->fail('请输入正确的文本框的宽度');
         }
         if ($data['type'] == 'textarea') {
-            if (!$data['width']) return app('json')->fail(400279);
-            if (!$data['high']) return app('json')->fail(400280);
-            if ($data['width'] < 0) return app('json')->fail(400281);
-            if ($data['high'] < 0) return app('json')->fail(400282);
+            if (!$data['width']) return app('json')->fail('请输入多行文本框的宽度');
+            if (!$data['high']) return app('json')->fail('请输入多行文本框的高度');
+            if ($data['width'] < 0) return app('json')->fail('请输入正确的多行文本框的宽度');
+            if ($data['high'] < 0) return app('json')->fail('请输入正确的多行文本框的宽度');
         }
         if ($data['type'] == 'radio' || $data['type'] == 'checkbox') {
-            if (!$data['parameter']) return app('json')->fail(400283);
+            if (!$data['parameter']) return app('json')->fail('请输入配置参数');
             $this->services->valiDateRadioAndCheckbox($data);
         }
         if ($data['level'] == 1) {
@@ -135,7 +136,7 @@ class SystemConfig extends AuthController
             $this->services->save($data);
         }
         CacheService::clear();
-        return app('json')->success(400284);
+        return app('json')->success('添加配置成功');
     }
 
     /**
@@ -147,7 +148,7 @@ class SystemConfig extends AuthController
     public function read($id)
     {
         if (!$id) {
-            return app('json')->fail(100100);
+            return app('json')->fail('参数错误');
         }
         $info = $this->services->getReadList((int)$id);
         return app('json')->success(compact('info'));
@@ -199,7 +200,7 @@ class SystemConfig extends AuthController
         ]);
         if (is_array($data['config_tab_id'])) $data['config_tab_id'] = end($data['config_tab_id']);
         if (!$this->services->get($id)) {
-            return app('json')->fail(100026);
+            return app('json')->fail('数据不存在');
         }
         if ($data['level'] == 1) {
             if (!$data['link_data']) return app('json')->fail('请选择关联顶级选项');
@@ -209,7 +210,7 @@ class SystemConfig extends AuthController
         $data['value'] = json_encode($data['value']);
         $this->services->update($id, $data);
         CacheService::clear();
-        return app('json')->success(100001);
+        return app('json')->success('修改成功');
     }
 
     /**
@@ -220,10 +221,10 @@ class SystemConfig extends AuthController
     public function delete($id)
     {
         if (!$this->services->delete($id))
-            return app('json')->fail(100008);
+            return app('json')->fail('删除失败');
         else {
             CacheService::clear();
-            return app('json')->success(100002);
+            return app('json')->success('删除成功');
         }
     }
 
@@ -236,11 +237,11 @@ class SystemConfig extends AuthController
     public function set_status($id, $status)
     {
         if ($status == '' || $id == 0) {
-            return app('json')->fail(100100);
+            return app('json')->fail('参数错误');
         }
         $this->services->update($id, ['status' => $status]);
         CacheService::clear();
-        return app('json')->success(100014);
+        return app('json')->success('设置成功');
     }
 
     /**
@@ -250,7 +251,7 @@ class SystemConfig extends AuthController
     {
         $tabId = $this->request->param('tab_id', 1);
         if (!$tabId) {
-            return app('json')->fail(100100);
+            return app('json')->fail('参数错误');
         }
         $url = $request->baseUrl();
         return app('json')->success($this->services->getConfigForm($url, $tabId));
@@ -279,7 +280,7 @@ class SystemConfig extends AuthController
             $this->services->checkThumbParam($post);
         }
         if (isset($post['extract_type']) && !count($post['extract_type'])) {
-            return app('json')->fail(400753);
+            return app('json')->fail('提现方式最少选一种');
         }
         if (isset($post['store_brokerage_binding_status'])) {
             $this->services->checkBrokerageBinding($post);
@@ -287,18 +288,18 @@ class SystemConfig extends AuthController
         if (isset($post['store_brokerage_ratio']) && isset($post['store_brokerage_two'])) {
             $num = $post['store_brokerage_ratio'] + $post['store_brokerage_two'];
             if ($num > 100) {
-                return app('json')->fail(400285);
+                return app('json')->fail('一二级返佣比例不能大于100%');
             }
         }
         if (isset($post['spread_banner'])) {
             $num = count($post['spread_banner']);
             if ($num > 5) {
-                return app('json')->fail(400286);
+                return app('json')->fail('分销海报不能多于5张');
             }
         }
         if (isset($post['user_extract_min_price'])) {
             if (!preg_match('/[0-9]$/', $post['user_extract_min_price'])) {
-                return app('json')->fail(400287);
+                return app('json')->fail('提现最低金额只能为数字');
             }
         }
         if (isset($post['wss_open'])) {
@@ -306,30 +307,30 @@ class SystemConfig extends AuthController
         }
         if (isset($post['store_brokerage_price']) && $post['store_brokerage_statu'] == 3) {
             if ($post['store_brokerage_price'] === '') {
-                return app('json')->fail(400288);
+                return app('json')->fail('满额分销最低金额不能为空');
             }
             if ($post['store_brokerage_price'] < 0) {
-                return app('json')->fail(400289);
+                return app('json')->fail('满额分销最低金额不能小于0');
             }
         }
         if (isset($post['store_brokerage_binding_time']) && $post['store_brokerage_binding_status'] == 2) {
             if (!preg_match("/^[0-9][0-9]*$/", $post['store_brokerage_binding_time'])) {
-                return app('json')->fail(400290);
+                return app('json')->fail('绑定有效期请填写正整数');
             }
         }
         if (isset($post['uni_brokerage_price']) && $post['uni_brokerage_price'] < 0) {
-            return app('json')->fail(400756);
+            return app('json')->fail('推广佣金单价不能小于0');
         }
         if (isset($post['day_brokerage_price_upper']) && $post['day_brokerage_price_upper'] < -1) {
-            return app('json')->fail(400757);
+            return app('json')->fail('每日推广佣金上限不能小于-1');
         }
         if (isset($post['pay_new_weixin_open']) && (bool)$post['pay_new_weixin_open']) {
             if (empty($post['pay_new_weixin_mchid'])) {
-                return app('json')->fail(400763);
+                return app('json')->fail('商户号不能为空');
             }
         }
         if (isset($post['uni_brokerage_price']) && preg_match('/\.[0-9]{2,}[1-9][0-9]*$/', (string)$post['uni_brokerage_price']) > 0) {
-            return app('json')->fail(500029);
+            return app('json')->fail('金额最多两位小数');
         }
 
         if (isset($post['weixin_ckeck_file'])) {
@@ -352,34 +353,106 @@ class SystemConfig extends AuthController
         }
 
         if (isset($post['sign_give_point'])) {
-            if (!is_int($post['sign_give_point']) || $post['sign_give_point'] < 0) return app('json')->fail('签到赠送积分请填写大于等于0的整数');
+            if (!is_int($post['sign_give_point']) || $post['sign_give_point'] < 0) {
+                return app('json')->fail('签到赠送积分请填写大于等于0的整数');
+            }
         }
         if (isset($post['sign_give_exp'])) {
-            if ((int)$post['sign_give_exp'] < 0) return app('json')->fail('签到赠送经验请填写大于等于0的整数');
+            if ((int)$post['sign_give_exp'] < 0) {
+                return app('json')->fail('签到赠送经验请填写大于等于0的整数');
+            }
         }
         if (isset($post['integral_frozen'])) {
-            if (!ctype_digit($post['integral_frozen']) || $post['integral_frozen'] < 0) return app('json')->fail('积分冻结天数请填写大于等于0的整数');
+            if (!ctype_digit($post['integral_frozen']) || $post['integral_frozen'] < 0) {
+                return app('json')->fail('积分冻结天数请填写大于等于0的整数');
+            }
         }
         if (isset($post['store_free_postage'])) {
-            if (!is_int($post['store_free_postage']) || $post['store_free_postage'] < 0) return app('json')->fail('满额包邮请填写大于等于0的整数');
+            if (!is_int($post['store_free_postage']) || $post['store_free_postage'] < 0) {
+                return app('json')->fail('满额包邮请填写大于等于0的整数');
+            }
         }
         if (isset($post['withdrawal_fee'])) {
-            if ($post['withdrawal_fee'] < 0 || $post['withdrawal_fee'] > 100) return app('json')->fail('提现手续费范围在0-100之间');
+            if ($post['withdrawal_fee'] < 0 || $post['withdrawal_fee'] > 100) {
+                return app('json')->fail('提现手续费范围在0-100之间');
+            }
         }
-        if (isset($post['routine_auth_type']) && count($post['routine_auth_type']) == 0) return app('json')->fail('微信和手机号登录开关至少开启一个');
+        if (isset($post['routine_auth_type']) && count($post['routine_auth_type']) == 0) {
+            return app('json')->fail('微信和手机号登录开关至少开启一个');
+        }
         if (isset($post['integral_max_num'])) {
-            if (!ctype_digit($post['integral_max_num']) || $post['integral_max_num'] < 0) return app('json')->fail('积分抵扣上限请填写大于等于0的整数');
+            if (!ctype_digit($post['integral_max_num']) || $post['integral_max_num'] < 0) {
+                return app('json')->fail('积分抵扣上限请填写大于等于0的整数');
+            }
         }
         if (isset($post['customer_phone'])) {
-            if (!ctype_digit($post['customer_phone']) || strlen($post['customer_phone']) > 11) return app('json')->fail('客服手机号为11位数字');
+            if (!ctype_digit($post['customer_phone']) || strlen($post['customer_phone']) > 11) {
+                return app('json')->fail('客服手机号为11位数字');
+            }
         }
         if (isset($post['refund_time_available'])) {
-            if (!ctype_digit($post['refund_time_available'])) return app('json')->fail('售后期限必须为大于0的整数');
+            if (!ctype_digit($post['refund_time_available'])) {
+                return app('json')->fail('售后期限必须为大于0的整数');
+            }
+        }
+        if (isset($post['sms_save_type']) && sys_config('sms_account', '') != '') {
+            return app('json')->success('修改成功');
         }
         if (isset($post['param_filter_data'])) {
             $post['param_filter_data'] = base64_encode($post['param_filter_data']);
         }
-        if (isset($post['sms_save_type']) && sys_config('sms_account', '') != '') return app('json')->success(100001);
+        if (isset($post['product_type_config'])) {
+            if (count($post['product_type_config']) == 0) {
+                return app('json')->fail('商品类型至少选择一项');
+            }
+        }
+        if (isset($post['yue_pay_status']) && $post['yue_pay_status'] == 1) {
+            $post['balance_func_status'] = 1;
+        }
+        if (isset($post['pay_weixin_client_cert'])) {
+            $certData = [
+                'type' => 'wechat',
+                'name' => 'pay_weixin_client_cert',
+                'path' => 'cert' . time() . rand(1000, 9999),
+                'content' => $post['pay_weixin_client_cert'] != '' ? file_get_contents($this->getPemPath($post['pay_weixin_client_cert'])) : '',
+            ];
+            $keyData = [
+                'type' => 'wechat',
+                'name' => 'pay_weixin_client_key',
+                'path' => 'key' . time() . rand(1000, 9999),
+                'content' => $post['pay_weixin_client_key'] != '' ? file_get_contents($this->getPemPath($post['pay_weixin_client_key'])) : '',
+            ];
+            $systemPemServices = app()->make(SystemPemServices::class);
+            $systemPemServices->savePem($certData);
+            $systemPemServices->savePem($keyData);
+        }
+
+        if (isset($post['merchant_cert_path'])) {
+            $merchantCertData = [
+                'type' => 'alipay',
+                'name' => 'merchant_cert_path',
+                'path' => 'merchant_cert' . time() . rand(1000, 9999),
+                'content' => $post['merchant_cert_path'] != '' ? file_get_contents($this->getPemPath($post['merchant_cert_path'])) : '',
+            ];
+            $alipayCertData = [
+                'type' => 'alipay',
+                'name' => 'alipay_cert_path',
+                'path' => 'alipay_cert' . time() . rand(1000, 9999),
+                'content' => $post['alipay_cert_path'] != '' ? file_get_contents($this->getPemPath($post['alipay_cert_path'])) : '',
+            ];
+            $alipayRootCertData = [
+                'type' => 'alipay',
+                'name' => 'alipay_root_cert_path',
+                'path' => 'alipay_root_cert' . time() . rand(1000, 9999),
+                'content' => $post['alipay_root_cert_path'] != '' ? file_get_contents($this->getPemPath($post['alipay_root_cert_path'])) : '',
+            ];
+            $systemPemServices = app()->make(SystemPemServices::class);
+            $systemPemServices->savePem($merchantCertData);
+            $systemPemServices->savePem($alipayCertData);
+            $systemPemServices->savePem($alipayRootCertData);
+        }
+
+
         foreach ($post as $k => $v) {
             $config_one = $this->services->getOne(['menu_name' => $k]);
             if ($config_one) {
@@ -389,7 +462,27 @@ class SystemConfig extends AuthController
             }
         }
         CacheService::clear();
-        return app('json')->success(100001);
+        return app('json')->success('修改成功');
+    }
+
+    /**
+     * 获取证书文件路径
+     * @param string $path
+     * @return string
+     * @author wuhaotian
+     * @email 442384644@qq.com
+     * @date 2024/10/21
+     */
+    public function getPemPath(string $path)
+    {
+        if (strstr($path, 'http://') || strstr($path, 'https://')) {
+            $path = parse_url($path)['path'] ?? '';
+        }
+        $path = root_path('runtime/pem') . ltrim($path, '/');
+        if (!file_exists($path)) {
+            $path = public_path('uploads') . ltrim($path, '/');
+        }
+        return $path;
     }
 
     /**
@@ -450,7 +543,8 @@ class SystemConfig extends AuthController
         $version = get_crmeb_version();
         return app('json')->success([
             'version' => $version,
-            'label' => 19
+            'label' => 19,
+            'spread_uid' => (int)(parse_ini_file(app()->getRootPath() . '.version')['spread_uid'] ?? 0)
         ]);
     }
 }

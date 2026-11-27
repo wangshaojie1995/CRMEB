@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -21,7 +21,7 @@ use think\Response;
  */
 class HttpEndListener
 {
-    public function handle(Response $response):void
+    public function handle(Response $response): void
     {
         if (!is_array($response->getData())) return;
         //业务成功和失败分开存储

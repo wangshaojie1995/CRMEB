@@ -1,15 +1,13 @@
 <?php
-/**
- *  +----------------------------------------------------------------------
- *  | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
- *  +----------------------------------------------------------------------
- *  | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
- *  +----------------------------------------------------------------------
- *  | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
- *  +----------------------------------------------------------------------
- *  | Author: CRMEB Team <admin@crmeb.com>
- *  +----------------------------------------------------------------------
- */
+// +----------------------------------------------------------------------
+// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
+// +----------------------------------------------------------------------
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
+// +----------------------------------------------------------------------
+// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
+// +----------------------------------------------------------------------
+// | Author: CRMEB Team <admin@crmeb.com>
+// +----------------------------------------------------------------------
 
 namespace crmeb\services\easywechat\v3pay;
 
@@ -80,7 +78,11 @@ class BaseClient extends AbstractAPI
         $options['headers'] = array_merge($headers, ($options['headers'] ?? []));
 
         if ($serial) {
-            $options['headers']['Wechatpay-Serial'] = $this->getCertficatescAttr('serial_no');
+            if ($this->app['config']['v3_payment']['v3_pay_public_key'] != '') {
+                $options['headers']['Wechatpay-Serial'] = $this->app['config']['v3_payment']['v3_pay_public_key'];
+            } else {
+                $options['headers']['Wechatpay-Serial'] = $this->getCertficatescAttr('serial_no');
+            }
         }
 
         return $this->_doRequestCurl($method, self::BASE_URL . $endpoint, $options);
@@ -188,7 +190,11 @@ class BaseClient extends AbstractAPI
      */
     protected function getPublicKey()
     {
-        $key_path = $this->app['config']['v3_payment']['cert_path'];
+        if ($this->app['config']['v3_payment']['v3_pay_public_key'] != '') {
+            $key_path = $this->app['config']['v3_payment']['v3_pay_public_pem'];
+        } else {
+            $key_path = $this->app['config']['v3_payment']['cert_path'];
+        }
         if (!file_exists($key_path)) {
             throw new \InvalidArgumentException(
                 "SSL certificate not found: {$key_path}"

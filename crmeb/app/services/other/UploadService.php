@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -86,7 +86,7 @@ class UploadService
             case 1:
                 break;
             default:
-                throw new UploadException(400733);
+                throw new UploadException('您已关闭上传功能');
         }
 
         //除了本地存储其他都去获取配置信息
@@ -100,7 +100,15 @@ class UploadService
             $config['cdn'] = $res['cdn'];
         }
 
-        $thumb = SystemConfigService::more(['thumb_big_height', 'thumb_big_width', 'thumb_mid_height', 'thumb_mid_width', 'thumb_small_height', 'thumb_small_width',]);
+        $thumb = SystemConfigService::more([
+            'image_thumb_status',
+            'thumb_big_height',
+            'thumb_big_width',
+            'thumb_mid_height',
+            'thumb_mid_width',
+            'thumb_small_height',
+            'thumb_small_width'
+        ]);
         $water = SystemConfigService::more([
             'image_watermark_status',
             'watermark_type',
@@ -113,7 +121,8 @@ class UploadService
             'watermark_text_color',
             'watermark_text_size',
             'watermark_x',
-            'watermark_y']);
+            'watermark_y'
+        ]);
         $config = array_merge($config, ['thumb' => $thumb], ['water' => $water]);
         return self::$upload['upload_' . $type] = new Upload($type, $config);
     }

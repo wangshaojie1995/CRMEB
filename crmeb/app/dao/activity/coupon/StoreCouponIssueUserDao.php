@@ -2,13 +2,13 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
 // | Author: CRMEB Team <admin@crmeb.com>
 // +----------------------------------------------------------------------
-declare (strict_types = 1);
+declare (strict_types=1);
 
 namespace app\dao\activity\coupon;
 
@@ -55,5 +55,10 @@ class StoreCouponIssueUserDao extends BaseDao
     public function delIssueUserCoupon($where)
     {
         return $this->getModel()->where($where)->delete();
+    }
+
+    public function getIssueUserCount($uid, $coupon_id)
+    {
+        return $this->getModel()->where('uid', $uid)->where('issue_coupon_id', $coupon_id)->count();
     }
 }

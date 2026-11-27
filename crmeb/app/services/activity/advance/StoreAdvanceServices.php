@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -94,7 +94,7 @@ class StoreAdvanceServices extends BaseServices
         /** @var StoreProductServices $storeProductServices */
         $storeProductServices = app()->make(StoreProductServices::class);
         if ($data['quota'] > $storeProductServices->value(['id' => $data['product_id']], 'stock')) {
-            throw new AdminException(400090);
+            throw new AdminException('限量不能超过商品库存');
         }
         $this->transaction(function () use ($id, $data, $description, $detail, $items, $storeDescriptionServices, $storeProductAttrServices, $storeProductServices) {
             if ($id) {
@@ -102,18 +102,18 @@ class StoreAdvanceServices extends BaseServices
                 $storeDescriptionServices->saveDescription((int)$id, $description, 6);
                 $skuList = $storeProductServices->validateProductAttr($items, $detail, (int)$id, 6);
                 $valueGroup = $storeProductAttrServices->saveProductAttr($skuList, (int)$id, 6);
-                if (!$res) throw new AdminException(100007);
+                if (!$res) throw new AdminException('修改失败');
             } else {
                 if (!$storeProductServices->getOne(['is_show' => 1, 'is_del' => 0, 'id' => $data['product_id']])) {
-                    throw new AdminException(400091);
+                    throw new AdminException('商品已下架或移入回收站');
                 }
                 $data['add_time'] = time();
                 $res = $this->dao->save($data);
                 $storeProductServices->update($data['product_id'], ['is_show' => 0]);
                 $storeDescriptionServices->saveDescription((int)$res->id, $description, 6);
-                $skuList = $storeProductServices->validateProductAttr($items, $detail, (int)$res->id, 6);
+                $skuList = $storeProductServices->validateProductAttr($items, $detail, (int)$res->id, 6, 1, true);
                 $valueGroup = $storeProductAttrServices->saveProductAttr($skuList, (int)$res->id, 6);
-                if (!$res) throw new AdminException(100022);
+                if (!$res) throw new AdminException('添加失败');
             }
         });
     }
@@ -185,12 +185,13 @@ class StoreAdvanceServices extends BaseServices
         $header[] = ['title' => '图片', 'slot' => 'pic', 'align' => 'center', 'minWidth' => 120];
         $header[] = ['title' => '预售价', 'key' => 'price', 'type' => 1, 'align' => 'center', 'minWidth' => 80];
         $header[] = ['title' => '成本价', 'key' => 'cost', 'align' => 'center', 'minWidth' => 80];
-        $header[] = ['title' => '原价', 'key' => 'ot_price', 'align' => 'center', 'minWidth' => 80];
+        $header[] = ['title' => '划线价', 'key' => 'ot_price', 'align' => 'center', 'minWidth' => 80];
         $header[] = ['title' => '库存', 'key' => 'stock', 'align' => 'center', 'minWidth' => 80];
         $header[] = ['title' => '限量', 'key' => 'quota', 'type' => 1, 'align' => 'center', 'minWidth' => 80];
         $header[] = ['title' => '重量(KG)', 'key' => 'weight', 'align' => 'center', 'minWidth' => 80];
         $header[] = ['title' => '体积(m³)', 'key' => 'volume', 'align' => 'center', 'minWidth' => 80];
-        $header[] = ['title' => '商品编号', 'key' => 'bar_code', 'align' => 'center', 'minWidth' => 80];
+        $header[] = ['title' => '商品编码', 'key' => 'bar_code', 'align' => 'center', 'minWidth' => 80];
+        $header[] = ['title' => '条形码', 'key' => 'bar_code_number', 'align' => 'center', 'minWidth' => 80];
         $attrs['header'] = $header;
         return $attrs;
     }
@@ -211,7 +212,7 @@ class StoreAdvanceServices extends BaseServices
         $count = 0;
         foreach ($value as $suk) {
             $detail = explode(',', $suk);
-            $sukValue = $storeProductAttrValueServices->getColumn(['product_id' => $id, 'type' => $type, 'suk' => $suk], 'bar_code,cost,price,ot_price,stock,image as pic,weight,volume,brokerage,brokerage_two,quota', 'suk');
+            $sukValue = $storeProductAttrValueServices->getColumn(['product_id' => $id, 'type' => $type, 'suk' => $suk], 'bar_code,bar_code_number,cost,price,ot_price,stock,image as pic,weight,volume,brokerage,brokerage_two,quota', 'suk');
             if (count($sukValue)) {
                 foreach ($detail as $k => $v) {
                     $valueNew[$count]['value' . ($k + 1)] = $v;
@@ -224,6 +225,7 @@ class StoreAdvanceServices extends BaseServices
                 $valueNew[$count]['stock'] = $sukValue[$suk]['stock'] ? intval($sukValue[$suk]['stock']) : 0;
                 $valueNew[$count]['quota'] = $sukValue[$suk]['quota'] ? intval($sukValue[$suk]['quota']) : 0;
                 $valueNew[$count]['bar_code'] = $sukValue[$suk]['bar_code'] ?? '';
+                $valueNew[$count]['bar_code_number'] = $sukValue[$suk]['bar_code_number'] ?? '';
                 $valueNew[$count]['weight'] = $sukValue[$suk]['weight'] ? floatval($sukValue[$suk]['weight']) : 0;
                 $valueNew[$count]['volume'] = $sukValue[$suk]['volume'] ? floatval($sukValue[$suk]['volume']) : 0;
                 $valueNew[$count]['brokerage'] = $sukValue[$suk]['brokerage'] ? floatval($sukValue[$suk]['brokerage']) : 0;
@@ -249,7 +251,7 @@ class StoreAdvanceServices extends BaseServices
         $uid = (int)$request->uid();
         $storeInfo = $this->dao->getOne(['id' => $id], '*', ['description']);
         if (!$storeInfo) {
-            throw new ApiException(410294);
+            throw new ApiException('商品不存在');
         } else {
             $storeInfo = $storeInfo->toArray();
         }
@@ -396,7 +398,7 @@ class StoreAdvanceServices extends BaseServices
     public function checkAdvanceStock(int $uid, int $advanceId, int $cartNum = 1, string $unique = '')
     {
         $productInfo = $this->dao->getOne(['id' => $advanceId, 'status' => 1, 'is_del' => 0], '*,title as store_name');
-        if (!$productInfo) throw new ApiException(400093);
+        if (!$productInfo) throw new ApiException('商品已下架或已删除');
         /** @var StoreProductAttrValueServices $attrValueServices */
         $attrValueServices = app()->make(StoreProductAttrValueServices::class);
         if ($unique == '') {
@@ -404,18 +406,18 @@ class StoreAdvanceServices extends BaseServices
         }
         $attrInfo = $attrValueServices->getOne(['product_id' => $advanceId, 'unique' => $unique, 'type' => 6]);
         if (!$attrInfo || $attrInfo['product_id'] != $advanceId) {
-            throw new ApiException(400094);
+            throw new ApiException('请选择有效的商品属性');
         }
         /** @var StoreOrderServices $orderServices */
         $orderServices = app()->make(StoreOrderServices::class);
         $userBuyCount = $orderServices->getBuyCount($uid, 'advance_id', $advanceId);
         if ($productInfo['num'] < ($userBuyCount + $cartNum)) {
-            throw new ApiException(410298, ['num' => $productInfo['num']]);
+            throw new ApiException('每人总共限购{:num}件', ['num' => $productInfo['num']]);
         }
-        if ($productInfo['start_time'] > time()) throw new ApiException(410321);
-        if ($productInfo['stop_time'] < time()) throw new ApiException(410322);
+        if ($productInfo['start_time'] > time()) throw new ApiException('活动未开始');
+        if ($productInfo['stop_time'] < time()) throw new ApiException('活动已结束');
         if ($cartNum > $attrInfo['quota']) {
-            throw new ApiException(410297, ['num' => $cartNum]);
+            throw new ApiException('该商品库存不足{:num}', ['num' => $cartNum]);
         }
         return [$attrInfo, $unique, $productInfo];
     }

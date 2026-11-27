@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -46,8 +46,11 @@ class PageLinkDao extends BaseDao
     public function getList(array $where, string $field = '*', int $page = 0, int $limit = 0)
     {
         $where['no_model'] = sys_config('model_checkbox', ['seckill', 'bargain', 'combination']);
-        return $this->search($where)->field($field)->when($page && $limit, function ($query) use ($page, $limit) {
-            $query->page();
-        })->order('sort desc,id asc')->select()->toArray();
+        return $this->search($where)->field($field)
+            ->when(isset($where['cate_ids']), function ($query) use ($where) {
+
+            })->when($page && $limit, function ($query) use ($page, $limit) {
+                $query->page($page, $limit);
+            })->order('sort desc,id asc')->select()->toArray();
     }
 }

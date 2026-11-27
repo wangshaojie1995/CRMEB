@@ -53,6 +53,26 @@ export function exportProductList(data) {
     params: data,
   });
 }
+/**
+ * 商品迁移导出
+ */
+export function exportProductExport(data) {
+  return request({
+    url: '/product/product_export',
+    method: 'get',
+    params: data,
+  });
+}
+/**
+ * 商品迁移导入
+ */
+export function importProductImport(data) {
+  return request({
+    url: '/product/product_import',
+    method: 'post',
+    data,
+  });
+}
 
 /**
  * 砍价列表导出
@@ -94,5 +114,16 @@ export function exportmberCardList(id) {
   return request({
     url: `/export/member_card/${id}`,
     method: 'get',
+  });
+}
+
+/**
+ * @description 核销订单导出；
+ */
+export function exportverifyOrderApi(data) {
+  return request({
+    url: `export/verify_order`,
+    method: 'get',
+    params: data,
   });
 }

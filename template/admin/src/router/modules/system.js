@@ -162,7 +162,7 @@ export default {
       meta: {
         auth: ['system-config-system_config_tab-list'],
         title: '配置列表',
-        activeMenu: routePre + "/system/config/system_config_tab/index"
+        activeMenu: routePre + '/system/config/system_config_tab/index',
       },
       component: () => import('@/pages/system/configTab/list'),
     },
@@ -202,6 +202,15 @@ export default {
         title: '在线升级',
       },
       component: () => import('@/pages/system/onlineUpgrade/index'),
+    },
+    {
+      path: 'crossVersionUpgrade/index',
+      name: `${pre}crossVersionUpgrade`,
+      meta: {
+        auth: ['system-crossVersionUpgrade-index'],
+        title: '跨版本升级',
+      },
+      component: () => import('@/pages/system/crossVersionUpgrade/index'),
     },
     {
       path: 'crontab',

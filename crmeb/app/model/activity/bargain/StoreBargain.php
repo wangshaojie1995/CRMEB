@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -59,9 +59,10 @@ class StoreBargain extends BaseModel
      */
     public function product()
     {
-        return $this->hasOne(StoreProduct::class, 'id', 'product_id')->field(['id', 'ot_price','cate_id'])->bind([
-            'ot_price'=>'ot_price',
-            'cate_id'=>'cate_id'
+        return $this->hasOne(StoreProduct::class, 'id', 'product_id')->field(['id', 'ot_price', 'cate_id', 'price'])->bind([
+            'ot_price' => 'ot_price',
+            'product_price' => 'price',
+            'cate_id' => 'cate_id'
         ]);
     }
 

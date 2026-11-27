@@ -8,7 +8,8 @@
         type="primary"
         icon="ios-cloud-upload-outline"
         class="ml10"
-        v-db-click @click="zh_uploadFile"
+        v-db-click
+        @click="zh_uploadFile"
         >{{ videoLink ? '确认添加' : '上传视频' }}</el-button
       >
       <el-upload

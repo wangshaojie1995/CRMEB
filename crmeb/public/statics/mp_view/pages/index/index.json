@@ -1,9 +1,15 @@
 {
   "navigationBarTitleText": "",
   "navigationStyle": "custom",
-  "navigationBarTextStyle": "white",
+  "navigationBarTextStyle": "black",
+  "componentPlaceholder": {
+    "page-design": "view"
+  },
   "usingComponents": {
-    "diy": "/pages/index/diy/index",
-    "visualization": "/pages/index/visualization/index"
+    "page-design": "/subpackage/diyComponents/pageDesign",
+    "loading": "/components/Loading/index",
+    "coupon-window": "/components/couponWindow/index",
+    "waterfalls-flow": "/components/WaterfallsFlow/WaterfallsFlow",
+    "empty-page": "/components/emptyPage"
   }
 }

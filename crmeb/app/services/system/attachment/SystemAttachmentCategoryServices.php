@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -93,9 +93,9 @@ class SystemAttachmentCategoryServices extends BaseServices
      * @return array
      * @throws \FormBuilder\Exception\FormBuilderException
      */
-    public function createForm($pid)
+    public function createForm($pid, $type)
     {
-        return create_form('添加分类', $this->form(['pid' => $pid]), Url::buildUrl('/file/category'), 'POST');
+        return create_form('添加分类', $this->form(['pid' => $pid, 'type' => $type]), Url::buildUrl('/file/category'), 'POST');
     }
 
     /**
@@ -122,6 +122,7 @@ class SystemAttachmentCategoryServices extends BaseServices
         return [
             Form::cascader('pid', '上级分类', $data)->options($pidList)->filterable(true)->props(['props' => ['multiple' => false, 'checkStrictly' => true, 'emitPath' => false]])->style(['width' => '100%']),
             Form::input('name', '分类名称', $info['name'] ?? '')->maxlength(30),
+            Form::hidden('type', $info['type'] ?? 0),
         ];
     }
 
@@ -172,10 +173,10 @@ class SystemAttachmentCategoryServices extends BaseServices
     public function save(array $data)
     {
         if ($this->dao->getOne(['name' => $data['name']])) {
-            throw new AdminException(400101);
+            throw new AdminException('该分类已存在');
         }
         $res = $this->dao->save($data);
-        if (!$res) throw new AdminException(100022);
+        if (!$res) throw new AdminException('添加失败');
         return $res;
     }
 
@@ -188,10 +189,10 @@ class SystemAttachmentCategoryServices extends BaseServices
     {
         $attachment = $this->dao->getOne(['name' => $data['name']]);
         if ($attachment && $attachment['id'] != $id) {
-            throw new AdminException(400101);
+            throw new AdminException('该分类已存在');
         }
         $res = $this->dao->update($id, $data);
-        if (!$res) throw new AdminException(100007);
+        if (!$res) throw new AdminException('修改失败');
     }
 
     /**
@@ -202,10 +203,10 @@ class SystemAttachmentCategoryServices extends BaseServices
     {
         $count = $this->dao->getCount(['pid' => $id]);
         if ($count) {
-            throw new AdminException(400102);
+            throw new AdminException('请先删除子分类');
         } else {
             $res = $this->dao->delete($id);
-            if (!$res) throw new AdminException(400102);
+            if (!$res) throw new AdminException('请先删除子分类');
         }
     }
 

@@ -35,6 +35,7 @@ export default {
       },
       component: () => import('@/pages/division/list/index'),
     },
+    
     {
       path: 'agent/index',
       name: `${pre}agent`,
@@ -43,6 +44,15 @@ export default {
         title: '代理商列表',
       },
       component: () => import('@/pages/division/agent/index'),
+    },
+    {
+      path: 'agent/statistics',
+      name: `${pre}agent`,
+      meta: {
+        auth: ['agent-division-statistics'],
+        title: '事业部统计',
+      },
+      component: () => import('@/pages/division/agent/statistics'),
     },
     {
       path: 'agent/applyList',

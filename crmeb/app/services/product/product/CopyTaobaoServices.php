@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -68,7 +68,7 @@ class CopyTaobaoServices extends BaseServices
                 break;
             case 2://99API
                 $apikey = sys_config('copy_product_apikey');
-                if (!$apikey) throw new AdminException(400554);
+                if (!$apikey) throw new AdminException('请先配置接口密钥');
                 /** @var ServeServices $services */
                 $services = app()->make(ServeServices::class);
                 $result = $services->copy('copy99api')->goods($url, [
@@ -97,6 +97,10 @@ class CopyTaobaoServices extends BaseServices
             }
             $data['cateList'] = $menus;
             $productInfo['attrs'] = $result['data']['info']['value'];
+            foreach ($productInfo['attrs'] as $attrs_k => $attrs_v) {
+                $productInfo['attrs'][$attrs_k]['attr_arr'] = array_values($attrs_v['detail']);
+                $productInfo['attrs'][$attrs_k]['is_show'] = 1;
+            }
             $productInfo['activity'] = ['默认', '秒杀', '砍价', '拼团'];
             $productInfo['bar_code'] = '';
             $productInfo['browse'] = 0;
@@ -114,9 +118,7 @@ class CopyTaobaoServices extends BaseServices
             $productInfo['is_postage'] = 0;
             $productInfo['is_seckill'] = 0;
             $productInfo['is_show'] = 0;
-            $productInfo['is_show'] = 0;
             $productInfo['is_sub'] = [];
-            $productInfo['is_vip'] = 0;
             $productInfo['is_vip'] = 0;
             $productInfo['label_id'] = [];
             $productInfo['mer_id'] = 0;
@@ -133,6 +135,20 @@ class CopyTaobaoServices extends BaseServices
             $productInfo['freight'] = 3;
             $productInfo['recommend'] = [];
             $productInfo['logistics'] = ['1', '2'];
+            $productInfo['params_list'] = [];
+            $productInfo['label_list'] = [];
+            $productInfo['protection_list'] = [];
+            foreach ($productInfo['items'] as &$items) {
+                $details = [];
+                foreach ($items['detail'] as $detail) {
+                    $details[] = [
+                        'value' => $detail,
+                        'pic' => '',
+                    ];
+                }
+                $items['detail'] = $details;
+                $items['add_pic'] = 0;
+            }
             $data['productInfo'] = $productInfo;
             return $data;
         } else {
@@ -160,12 +176,12 @@ class CopyTaobaoServices extends BaseServices
         //生成附件目录
         try {
             if (make_path('attach', 3, true) === '')
-                throw new AdminException(400555);
+                throw new AdminException('无法创建文件夹，请检查您的上传目录权限');
         } catch (\Exception $e) {
-            throw new AdminException(400555);
+            throw new AdminException('无法创建文件夹，请检查您的上传目录权限');
         }
         $description = $storeDescriptionServices->getDescription(['product_id ' => $id, 'type' => 0]);
-        if (!$description) throw new AdminException(400556);
+        if (!$description) throw new AdminException('商品参数错误');
         //替换并下载详情里面的图片默认下载全部图片
         $description = preg_replace('#<style>.*?</style>#is', '', $description);
         $description = $this->uploadImage([], $description, 1, $AttachmentCategory['id']);
@@ -263,7 +279,7 @@ class CopyTaobaoServices extends BaseServices
                 return $html;
                 break;
             default:
-                throw new AdminException(400557);
+                throw new AdminException('上传方式错误');
                 break;
         }
         return $uploadImage;
@@ -276,11 +292,23 @@ class CopyTaobaoServices extends BaseServices
      * @param int $timeout
      * @param int $w
      * @param int $h
-     * @return string
+     * @return array|string
      */
     public function downloadImage($url = '', $name = '', $type = 0, $timeout = 30, $w = 0, $h = 0)
     {
         if (!strlen(trim($url))) return '';
+
+        // 自动判断当前图片链接是否为需要使用curl下载的平台（淘宝、京东、天猫、1688）
+        if ($type == 0 && strlen(trim($url))) {
+            $antiHotlinkingPlatforms = ['alicdn.com', 'taobao.com', 'tmall.com', 'jd.com', 'jdstatic.com', '1688.com'];
+            foreach ($antiHotlinkingPlatforms as $platform) {
+                if (stripos($url, $platform) !== false) {
+                    $type = 1;
+                    break;
+                }
+            }
+        }
+
         if (!strlen(trim($name))) {
             //TODO 获取要下载的文件名称
             $downloadImageInfo = $this->getImageExtname($url);
@@ -291,7 +319,7 @@ class CopyTaobaoServices extends BaseServices
             $ext = $this->getImageExtname($name)['ext_name'];
         }
         if (!in_array($ext, Config::get('upload.fileExt'))) {
-            throw new AdminException(400558);
+            throw new AdminException('格式错误');
         }
         //TODO 获取远程文件所采用的方法
         if ($type) {
@@ -301,7 +329,9 @@ class CopyTaobaoServices extends BaseServices
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); //TODO 跳过证书检查
             if (stripos($url, "https://") !== FALSE) curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);  //TODO 从证书中检查SSL加密算法是否存在
-            curl_setopt($ch, CURLOPT_HTTPHEADER, array('user-agent:' . $_SERVER['HTTP_USER_AGENT']));
+            // 根据URL识别平台并获取对应的防盗链headers
+            $headers = $this->getAntiHotlinkingHeaders($url);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
             if (ini_get('open_basedir') == '' && ini_get('safe_mode') == 'Off') curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);//TODO 是否采集301、302之后的页面
             $content = curl_exec($ch);
             curl_close($ch);
@@ -311,7 +341,7 @@ class CopyTaobaoServices extends BaseServices
                 if (substr($url, 0, 2) == '//') {
                     $url = "https:" . $url;
                 }
-                readfile($url);
+                @readfile($url);
                 $content = ob_get_contents();
                 ob_end_clean();
             } catch (\Exception $e) {
@@ -319,7 +349,7 @@ class CopyTaobaoServices extends BaseServices
             }
         }
         $size = strlen(trim($content));
-        if (!$content || $size <= 2) throw new AdminException(400559);
+        if (!$content || $size <= 2) throw new AdminException('图片流获取失败');
         $date_dir = date('Y') . '/' . date('m') . '/' . date('d');
         $upload_type = sys_config('upload_type', 1);
         $upload = UploadService::init($upload_type);
@@ -385,7 +415,7 @@ class CopyTaobaoServices extends BaseServices
 
         //生成附件目录
         if (make_path('attach', 3, true) === '') {
-            throw new AdminException(400555);
+            throw new AdminException('无法创建文件夹，请检查您的上传目录权限');
         }
 
         //上传图片
@@ -418,5 +448,58 @@ class CopyTaobaoServices extends BaseServices
             return $imagePath;
         }
         return false;
+    }
+
+    /**
+     * 根据URL识别平台并获取对应的防盗链headers
+     * @param string $url 图片URL
+     * @return array 返回对应的HTTP headers
+     */
+    public function getAntiHotlinkingHeaders(string $url): array
+    {
+        // 基础headers
+        $baseHeaders = [
+            'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept: image/webp,image/apng,image/*,*/*;q=0.8',
+            'Accept-Language: zh-CN,zh;q=0.9,en;q=0.8',
+            'Accept-Encoding: gzip, deflate, br',
+            'Connection: keep-alive',
+        ];
+
+        // 根据URL识别平台
+        if (stripos($url, 'alicdn.com') !== false || stripos($url, 'taobao.com') !== false) {
+            // 淘宝/天猫/1688的图片 (通常在alicdn.com域名下)
+            return array_merge($baseHeaders, [
+                'Referer: https://buyer.taobao.com/',  // 淘宝买家中心
+            ]);
+        } elseif (stripos($url, 'tmall.com') !== false) {
+            // 天猫的图片
+            return array_merge($baseHeaders, [
+                'Referer: https://www.tmall.com/',  // 天猫首页
+            ]);
+        } elseif (stripos($url, 'jd.com') !== false || stripos($url, 'jdstatic.com') !== false) {
+            // 京东的图片
+            return array_merge($baseHeaders, [
+                'Referer: https://www.jd.com/',  // 京东首页
+            ]);
+        } elseif (stripos($url, '1688.com') !== false) {
+            // 1688的图片
+            return array_merge($baseHeaders, [
+                'Referer: https://www.1688.com/',  // 1688首页
+            ]);
+        } elseif (stripos($url, 'baidu.com') !== false) {
+            // 百度图片
+            return array_merge($baseHeaders, [
+                'Referer: https://image.baidu.com/',  // 百度图片
+            ]);
+        } elseif (stripos($url, 'sinaimg.cn') !== false) {
+            // 新浪图片
+            return array_merge($baseHeaders, [
+                'Referer: https://weibo.com/',  // 新浪微博
+            ]);
+        } else {
+            // 默认headers，不设置Referer
+            return $baseHeaders;
+        }
     }
 }

@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -104,6 +104,8 @@ class StoreCombinationDao extends BaseDao
                 }
             })->when($page != 0 && $limit != 0, function ($query) use ($page, $limit) {
                 $query->page($page, $limit);
+            })->when(isset($where['product_id']) && $where['product_id'] != 0, function ($query) use ($where) {
+                $query->where('product_id', $where['product_id']);
             })->order('sort desc,id desc')->select()->toArray();
     }
 
@@ -239,5 +241,11 @@ class StoreCombinationDao extends BaseDao
     {
         $where = ['is_del' => 0, 'is_host' => 1, 'is_show' => 1, 'pinkIngTime' => true];
         return $this->search($where)->order('id desc')->select()->toArray();
+    }
+
+    public function getProductExist($productIds)
+    {
+        return $this->getModel()->where('product_id', 'in', $productIds)->where('is_del', 0)
+            ->group('product_id')->column('COUNT(*) as count', 'product_id');
     }
 }

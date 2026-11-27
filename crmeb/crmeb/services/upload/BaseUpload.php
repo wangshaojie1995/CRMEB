@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -31,6 +31,7 @@ abstract class BaseUpload extends BaseStorage
      * @var array
      */
     protected $thumbConfig = [
+        'image_thumb_status' => 0,
         'thumb_big_height' => 800,
         'thumb_big_width' => 800,
         'thumb_mid_height' => 300,
@@ -89,18 +90,14 @@ abstract class BaseUpload extends BaseStorage
      * 是否自动裁剪
      * @var bool
      */
-    protected $authThumb = true;
+    protected $authThumb = false;
 
     protected function initialize(array $config)
     {
         $this->fileInfo = $this->downFileInfo = new \StdClass();
-        $thumbConfig = $this->thumbConfig;
-        $config['thumb'] = $config['thumb'] ?? [];
-        $this->thumbConfig = $config['thumb'] ?? [];
-        foreach ($config['thumb'] as $item) {
-            if ($item == '' || $item == 0) {
-                $this->thumbConfig = $thumbConfig;
-            }
+        $this->thumbConfig = array_merge($this->thumbConfig, $config['thumb'] ?? []);
+        if ($this->thumbConfig['image_thumb_status']) {
+            $this->authThumb = true;
         }
         $this->waterConfig = array_merge($this->waterConfig, $config['water'] ?? []);
     }
@@ -308,12 +305,22 @@ abstract class BaseUpload extends BaseStorage
     public function getUploadInfo()
     {
         if (isset($this->fileInfo->filePath)) {
-            if (strstr($this->fileInfo->filePath, 'http') === false) {
-                $url = request()->domain() . $this->fileInfo->filePath;
+            // 如果文件的后缀是pem或者crt，则使用getFileHeaders获取文件大小和类型
+            $fileExt = pathinfo($this->fileInfo->filePath, PATHINFO_EXTENSION);
+            if ($fileExt === 'pem' || $fileExt === 'crt') {
+                $headers = $this->getFileHeaders(sys_config('site_url') . $this->fileInfo->filePath);
             } else {
-                $url = $this->fileInfo->filePath;
+                if (strstr($this->fileInfo->filePath, 'http') === false) {
+                    $filePath = app()->getRootPath() . 'public' . $this->fileInfo->filePath;
+                    $headers = [
+                        'size' => filesize($filePath),
+                        'type' => function_exists('mime_content_type') ? mime_content_type($filePath) : 'image/jpeg'
+                    ];
+                } else {
+                    $url = $this->fileInfo->filePath;
+                    $headers = $this->getFileHeaders($url);
+                }
             }
-            $headers = $this->getFileHeaders($url);
             return [
                 'name' => $this->fileInfo->fileName,
                 'real_name' => $this->fileInfo->realName ?? '',
@@ -339,12 +346,22 @@ abstract class BaseUpload extends BaseStorage
     public function getDownloadInfo()
     {
         if (isset($this->downFileInfo->downloadFilePath)) {
-            if (strstr($this->downFileInfo->downloadFilePath, 'http') === false) {
-                $url = request()->domain() . $this->downFileInfo->downloadFilePath;
+            // 如果文件的后缀是pem或者crt，则使用getFileHeaders获取文件大小和类型
+            $fileExt = pathinfo($this->downFileInfo->downloadFilePath, PATHINFO_EXTENSION);
+            if ($fileExt === 'pem' || $fileExt === 'crt') {
+                $headers = $this->getFileHeaders(sys_config('site_url') . $this->downFileInfo->downloadFilePath);
             } else {
-                $url = $this->downFileInfo->downloadFilePath;
+                if (strstr($this->downFileInfo->downloadFilePath, 'http') === false) {
+                    $filePath = app()->getRootPath() . 'public' . $this->downFileInfo->downloadFilePath;
+                    $headers = [
+                        'size' => filesize($filePath),
+                        'type' => function_exists('mime_content_type') ? mime_content_type($filePath) : 'image/jpeg'
+                    ];
+                } else {
+                    $url = $this->downFileInfo->downloadFilePath;
+                    $headers = $this->getFileHeaders($url);
+                }
             }
-            $headers = $this->getFileHeaders($url);
             return [
                 'name' => $this->downFileInfo->downloadFileName,
                 'real_name' => $this->downFileInfo->downloadRealName ?? '',

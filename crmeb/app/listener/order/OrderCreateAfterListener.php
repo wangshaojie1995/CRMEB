@@ -1,9 +1,17 @@
 <?php
-
-
+// +----------------------------------------------------------------------
+// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
+// +----------------------------------------------------------------------
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
+// +----------------------------------------------------------------------
+// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
+// +----------------------------------------------------------------------
+// | Author: CRMEB Team <admin@crmeb.com>
+// +----------------------------------------------------------------------
 namespace app\listener\order;
 
 
+use app\jobs\notice\PrintJob;
 use app\jobs\OrderCreateAfterJob;
 use app\jobs\OrderJob;
 use app\jobs\ProductLogJob;
@@ -53,6 +61,9 @@ class OrderCreateAfterListener implements ListenerInterface
 
         //下单记录
         ProductLogJob::dispatch(['order', ['uid' => $uid, 'order_id' => $order['id']]]);
+
+        //小票打印
+        PrintJob::dispatch([$order['id'], 2]);
     }
 
     /**

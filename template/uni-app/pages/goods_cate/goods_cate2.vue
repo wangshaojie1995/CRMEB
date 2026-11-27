@@ -3,9 +3,9 @@
 		<!-- <view>
 			<scroll-view scroll-y="true" class="scroll-Y"> -->
 		<view class="header acea-row row-center-wrapper">
-			<navigator open-type="switchTab" url="/pages/index/index" class="pageIndex" hover-class="none" @click="jumpIndex">
+			<view class="pageIndex" hover-class="none" @click="jumpIndex">
 				<text class="iconfont icon-shouye3"></text>
-			</navigator>
+			</view>
 			<navigator url="/pages/goods/goods_search/index" class="search acea-row row-center-wrapper" hover-class="none">
 				<text class="iconfont icon-xiazai5"></text>
 				{{ $t(`搜索商品名称`) }}
@@ -448,7 +448,7 @@ export default {
 			this.ChangeCartNum(changeValue, num, stock, 1, this.id);
 		},
 		// 已经加入购物车时的购物加减；
-		ChangeCartList(changeValue, index, isCartPop) {
+		ChangeCartList(changeValue, index) {
 			let list = this.cartData.cartList;
 			let num = list[index];
 			let stock = list[index].trueStock;
@@ -492,9 +492,8 @@ export default {
 				num.cart_num--;
 				if (num.cart_num < num.min_qty) {
 					this.cartData.cartList.splice(index, 1);
-					num.cart_num = 0
-				}
-				if (num.cart_num == 0) {
+					num.cart_num = 0;
+				} else if (num.cart_num == 0) {
 					this.cartData.cartList.splice(index, 1);
 				}
 				if (num.cart_num < 0) {
@@ -736,7 +735,7 @@ page {
 	background-color: #fff;
 }
 
-/deep/.product-window.joinCart {
+::v-deep.product-window.joinCart {
 	z-index: 999;
 }
 
@@ -752,7 +751,7 @@ page {
 		z-index: 99;
 	}
 
-	/deep/.attrProduct {
+	::v-deep.attrProduct {
 		.mask {
 			z-index: 100;
 		}
@@ -982,7 +981,7 @@ page {
 				margin-top: 228rpx;
 				padding: 0 30rpx 0 20rpx;
 
-				/deep/.item {
+				::v-deep.item {
 					margin-bottom: 33rpx !important;
 
 					.pictrue {
@@ -1026,7 +1025,7 @@ page {
 		z-index: 101;
 		padding: 12rpx 30rpx;
 		box-sizing: border-box;
-		padding-bottom: calc(12rpx+ constant(safe-area-inset-bottom)); ///兼容 IOS<11.2/
+		padding-bottom: calc(12rpx + constant(safe-area-inset-bottom)); ///兼容 IOS<11.2/
 		padding-bottom: calc(12rpx + env(safe-area-inset-bottom)); ///兼容 IOS>11.2/
 
 		.cartIcon {

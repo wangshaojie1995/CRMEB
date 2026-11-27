@@ -29,11 +29,12 @@
             <el-option value="4" label="交易完成"></el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="订单搜索：" label-for="title">
+        <el-form-item label="搜索：" label-for="title">
           <el-input
             v-model="pagination.real_name"
             :placeholder="type == 1 ? '请输入用户姓名|订单号|UID' : '请输入用户UID'"
             class="form_content_width"
+            clearable
           />
         </el-form-item>
         <el-form-item>
@@ -318,6 +319,10 @@ export default {
     },
     // 标签切换
     onClickTab(e) {
+      // 切换标签时，重置搜索条件，页码重置为1
+      this.pagination.page = 1;
+      this.pagination.real_name = '';
+      this.pagination.status = '';
       this.type = e.index;
       this.getList(this.id);
     },
@@ -345,57 +350,48 @@ export default {
 };
 </script>
 
-<style scoped lang="stylus">
+<style lang="scss" scoped>
 .cl {
   margin-right: 20px;
 }
-
 .code-row-bg {
   display: flex;
   flex-wrap: nowrap;
 }
-
 .code-row-bg .ivu-mt {
   width: 100%;
   margin: 0 5px;
 }
-
 .ech-box {
   margin-top: 10px;
 }
-
 .change-style {
   border: 1px solid #ccc;
   border-radius: 15px;
   padding: 0px 10px;
   cursor: pointer;
 }
-
 .table-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-
 .return {
   margin-bottom: 6px;
 }
-
 ::v-deep .ivu-tabs-nav-scroll {
   background-color: #fff;
   padding-top: 5px;
 }
-
 .tabBox_img {
   width: 36px;
   height: 36px;
   border-radius: 4px;
   cursor: pointer;
 
-img {
-  width: 100%;
-  height: 100%;
-}
-
+  img {
+    width: 100%;
+    height: 100%;
+  }
 }
 </style>

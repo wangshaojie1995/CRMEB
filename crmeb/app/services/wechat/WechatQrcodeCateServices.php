@@ -1,6 +1,13 @@
 <?php
-
-
+// +----------------------------------------------------------------------
+// | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
+// +----------------------------------------------------------------------
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
+// +----------------------------------------------------------------------
+// | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
+// +----------------------------------------------------------------------
+// | Author: CRMEB Team <admin@crmeb.com>
+// +----------------------------------------------------------------------
 namespace app\services\wechat;
 
 
@@ -39,8 +46,8 @@ class WechatQrcodeCateServices extends BaseServices
     {
         $info = $this->dao->get($id);
         $f[] = Form::hidden('id', $id);
-        $f[] = Form::input('cate_name', '分类名称', $info['cate_name'] ?? '')->maxlength(10)->required();
-        return create_form('添加分类', $f, Url::buildUrl('/app/wechat_qrcode/cate/save'), 'POST');
+        $f[] = Form::input('cate_name', '分组名称', $info['cate_name'] ?? '')->maxlength(10)->required();
+        return create_form($id ? '修改分组' : '添加分组', $f, Url::buildUrl('/app/wechat_qrcode/cate/save'), 'POST');
     }
 
     /**
@@ -58,7 +65,7 @@ class WechatQrcodeCateServices extends BaseServices
         } else {
             $res = $this->dao->save($data);
         }
-        if (!$res) throw new AdminException(100006);
+        if (!$res) throw new AdminException('保存失败');
         return true;
     }
 
@@ -70,10 +77,10 @@ class WechatQrcodeCateServices extends BaseServices
     public function delCate($id = 0)
     {
         $count = app()->make(WechatQrcodeServices::class)->count(['cate_id' => $id]);
-        if ($count) throw new AdminException(400454);
-        if (!$id) throw new AdminException(100100);
+        if ($count) throw new AdminException('该分类有下级分类，无法删除');
+        if (!$id) throw new AdminException('参数错误');
         $res = $this->dao->update($id, ['is_del' => 1]);
-        if (!$res) throw new AdminException(100008);
+        if (!$res) throw new AdminException('删除失败');
         return true;
     }
 

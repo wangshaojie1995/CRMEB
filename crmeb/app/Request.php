@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -33,8 +33,20 @@ class Request extends \think\Request
      * 不过滤变量名
      * @var array
      */
-    protected $except = ['menu_path', 'api_url', 'unique_auth',
-        'description', 'custom_form', 'content', 'tableField', 'url', 'customCode', 'value', 'refund_reason_wap_img'];
+    protected $except = [
+        'menu_path',
+        'api_url',
+        'unique_auth',
+        'description',
+        'custom_form',
+        'params_list',
+        'content',
+        'tableField',
+        'url',
+        'customCode',
+        'value',
+        'refund_reason_wap_img'
+    ];
 
     /**
      * 获取请求的数据
@@ -47,6 +59,7 @@ class Request extends \think\Request
     {
         $p = [];
         $i = 0;
+        $this->filterArrayValues($this->param);
         foreach ($params as $param) {
             if (!is_array($param)) {
                 $p[$suffix == true ? $i++ : $param] = $this->param($param);
@@ -92,7 +105,6 @@ class Request extends \think\Request
                     // 如果值是字符串，过滤特殊字符
                     $result[$key] = filter_str($value);
                 }
-
             }
         }
         return $result;
@@ -178,7 +190,7 @@ class Request extends \think\Request
     }
 
     /**
-     * 是否是app端
+     * 是否是pc端
      * @return bool
      */
     public function isPc()

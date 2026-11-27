@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -151,7 +151,7 @@ class WechatTemplateListService extends NoticeService
             'time5' => date('Y-m-d H:i:s', time()),
             'thing2' => $title,
             'amount3' => $order['refund_price'],
-        ], '/pages/goods/order_details/index?order_id=' . $order['refund_no'] . '&isReturen=1');
+        ], '/pages/goods/order_details/index?order_id=' . $order['refund_no'] . '&isReturn=1');
     }
 
     /**
@@ -168,7 +168,7 @@ class WechatTemplateListService extends NoticeService
             'thing2' => $title,
             'amount3' => $order['refund_price'],
             'thing4' => $order['refuse_reason'],
-        ], '/pages/goods/order_details/index?order_id=' . $order['refund_no'] . '&isReturen=1');
+        ], '/pages/goods/order_details/index?order_id=' . $order['refund_no'] . '&isReturn=1');
     }
 
     /**
@@ -200,6 +200,25 @@ class WechatTemplateListService extends NoticeService
             'amount2' => $extractNumber,
         ]);
     }
+
+    /**
+     * 提现成功
+     * @param $uid
+     * @param $extractNumber
+     * @param $order_id
+     * @param $type
+     * @return bool|void
+     */
+    public function sendRevenueReceived($uid, $extractNumber, $order_id, $type)
+    {
+        return $this->sendTemplate((int)$uid, [
+            'character_string9' => $order_id,
+            'thing3' => '平台发放佣金',
+            'amount4' => $extractNumber,
+            'time2' => date('Y-m-d H:i:s', time()),
+        ], '/pages/users/user_spread_money/receiving?id=' . $order_id . '&type=' . $type);
+    }
+
     /**
      * 订单给客服提醒
      * @param $orderId

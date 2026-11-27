@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -41,7 +41,7 @@ class StoreCouponIssue extends AuthController
         $where = $this->request->getMore([
             ['status', 1],
             ['coupon_title', ''],
-            ['receive_type', ''],
+            ['receive_type', '', '', 'receive_types'],
             ['type', ''],
             ['coupon_type', ''],
         ]);
@@ -74,9 +74,10 @@ class StoreCouponIssue extends AuthController
             ['sort', 0],
             ['status', 0],
             ['receive_limit', 1],
+            ['user_type', 1],
         ]);
         $res = $this->services->saveCoupon($data);
-        if ($res) return app('json')->success(100000);
+        if ($res) return app('json')->success('保存成功');
     }
 
     /**
@@ -88,7 +89,7 @@ class StoreCouponIssue extends AuthController
     public function status($id, $status)
     {
         $this->services->update($id, ['status' => $status]);
-        return app('json')->success(100001);
+        return app('json')->success('修改成功');
     }
 
     /**
@@ -98,9 +99,16 @@ class StoreCouponIssue extends AuthController
      */
     public function copy($id = 0)
     {
-        if (!$id) return app('json')->fail(100100);
+        if (!$id) return app('json')->fail('参数错误');
         $info = $this->services->get($id);
         if ($info) $info = $info->toArray();
+        if ($info['receive_type'] == 1 || $info['receive_type'] == 3) {
+            $info['user_type'] = 1;
+        }
+        if ($info['receive_type'] == 4) {
+            $info['user_type'] = 2;
+            $info['receive_type'] = 1;
+        }
         if ($info['product_id'] != '') {
             $productIds = explode(',', $info['product_id']);
             /** @var StoreProductServices $product */
@@ -134,7 +142,7 @@ class StoreCouponIssue extends AuthController
         $storeProductService = app()->make(StoreProductCouponServices::class);
         //删除商品关联这个优惠券
         $storeProductService->delete(['issue_coupon_id' => $id]);
-        return app('json')->success(100002);
+        return app('json')->success('删除成功');
     }
 
     /**

@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -67,10 +67,11 @@ class AgentLevelServices extends BaseServices
         }], $page, $limit);
         $count = $this->dao->count($where);
         foreach ($list as &$item) {
-//            $item['one_brokerage_ratio'] = bcdiv(bcmul((string)sys_config('store_brokerage_ratio'), bcadd('100', (string)$item['one_brokerage'], 2), 2), '100', 2);
-//            $item['two_brokerage_ratio'] = bcdiv(bcmul((string)sys_config('store_brokerage_two'), bcadd('100', (string)$item['two_brokerage'], 2), 2), '100', 2);
             $item['one_brokerage_ratio'] = $item['one_brokerage_percent'];
             $item['two_brokerage_ratio'] = $item['two_brokerage_percent'];
+            if (strpos($item['image'], '/statics/system_images/') !== false) {
+                $item['image'] = set_file_url($item['image']);
+            }
         }
         return compact('count', 'list');
     }
@@ -90,7 +91,7 @@ class AgentLevelServices extends BaseServices
         $userServices = app()->make(UserServices::class);
         $user = $userServices->getUserInfo($uid);
         if (!$user) {
-            throw new ApiException(410032);
+            throw new ApiException('用户不存在');
         }
         //检测升级
         $this->checkUserLevelFinish($uid);
@@ -199,8 +200,8 @@ class AgentLevelServices extends BaseServices
                 $ids = array_column($task_list, 'id');
                 $finish_task = $levelTaskRecordServices->count(['level_id' => $levelInfo['id'], 'uid' => $uid, 'task_id' => $ids]);
                 //任务完成升这一等级
-                if ($finish_task >= count($task_list)) {
-                    $userServices->update($uid, ['agent_level' => $levelInfo['grade']]);
+                if ($finish_task >= $levelInfo['task_num']) {
+                    $userServices->update($uid, ['agent_level' => $levelInfo['id']]);
                 } else {
                     break;
                 }
@@ -230,25 +231,15 @@ class AgentLevelServices extends BaseServices
 
         if ($one_agent_level) {
             $oneLevelInfo = $this->getLevelInfo($one_agent_level);
-            if ($oneLevelInfo) {
+            if ($oneLevelInfo && $oneLevelInfo['status'] == 1) {
                 $storeBrokerageRatio = $oneLevelInfo['one_brokerage_percent'];
-//                if ($oneLevelInfo['one_brokerage_percent'] == '0.00') {
-//                    $storeBrokerageRatio = $storeBrokerageRatio + (($storeBrokerageRatio * $oneLevelInfo['one_brokerage'] ?? 0) / 100);
-//                } else {
-//                    $storeBrokerageRatio = $oneLevelInfo['one_brokerage_percent'];
-//                }
             }
         }
 
         if ($two_agent_level) {
             $twoLevelInfo = $this->getLevelInfo($two_agent_level);
-            if ($twoLevelInfo) {
+            if ($twoLevelInfo && $twoLevelInfo['status'] == 1) {
                 $storeBrokerageTwo = $twoLevelInfo['two_brokerage_percent'];
-//                if ($twoLevelInfo['two_brokerage_percent'] == '0.00') {
-//                    $storeBrokerageTwo = $storeBrokerageTwo + (($storeBrokerageTwo * $twoLevelInfo['two_brokerage'] ?? 0) / 100);
-//                } else {
-//                    $storeBrokerageTwo = $twoLevelInfo['two_brokerage_percent'];
-//                }
             }
         }
 
@@ -290,7 +281,7 @@ class AgentLevelServices extends BaseServices
     {
         $levelInfo = $this->getLevelInfo($id);
         if (!$levelInfo)
-            throw new AdminException(100026);
+            throw new AdminException('数据不存在');
         $field = [];
         $field[] = Form::hidden('id', $id);
         $field[] = Form::input('name', '等级名称', $levelInfo['name'])->maxlength(8)->col(24);
@@ -326,7 +317,7 @@ class AgentLevelServices extends BaseServices
         $userServices = app()->make(UserServices::class);
         $userInfo = $userServices->getUserInfo($uid);
         if (!$userInfo) {
-            throw new AdminException(400214);
+            throw new AdminException('用户不存在');
         }
         $levelList = $this->dao->getList(['is_del' => 0, 'status' => 1], '*', [], 0, 0, $userInfo['agent_level']);
         $setOptionLabel = function () use ($levelList) {
@@ -356,15 +347,65 @@ class AgentLevelServices extends BaseServices
         $userServices = app()->make(UserServices::class);
         $userInfo = $userServices->getUserInfo($uid, 'uid');
         if (!$userInfo) {
-            throw new AdminException(400214);
+            throw new AdminException('用户不存在');
         }
         $levelInfo = $this->getLevelInfo($id, 'id');
         if (!$levelInfo) {
-            throw new AdminException(400442);
+            throw new AdminException('分销等级不存在');
         }
         if ($userServices->update($uid, ['agent_level' => $id]) === false) {
-            throw new AdminException(400219);
+            throw new AdminException('赠送失败');
         }
         return true;
+    }
+
+    /**
+     * 获取指定分销等级的任务数量表单
+     * @param int $id 分销等级ID
+     * @return array|string
+     */
+    public function getTaskNumForm($id)
+    {
+        // 获取指定分销等级的信息
+        $levelInfo = $this->getLevelInfo($id);
+        // 构建任务数量输入框
+        $field[] = Form::input('task_num', '完成任务数量', $levelInfo['task_num'])->maxlength(8)->col(24)->info('默认全部完成升级，可设置升级任务数量');
+        // 创建表单并返回HTML字符串
+        return create_form('设置完成任务数量', $field, Url::buildUrl('/agent/set_task_num/' . $id), 'post');
+    }
+
+    /**
+     * 设置指定分销等级的任务数量
+     * @param int $id 分销等级ID
+     * @param array $data 包含任务数量的数组
+     * @return bool 返回true表示设置成功
+     * @throws AdminException 如果分销等级不存在或任务数量为空或任务数量大于已有任务数量，则抛出异常
+     */
+    public function setTaskNum($id, $data)
+    {
+        // 判断分销等级是否存在
+        if (!$id) throw new AdminException('分销等级不存在');
+        // 判断任务数量是否为空
+        if (!$data['task_num']) throw new AdminException('请输入任务数量');
+        // 获取当前分销等级已有的任务数量
+        $count = app()->make(AgentLevelTaskServices::class)->count(['level_id' => $id, 'is_del' => 0, 'status' => 1]);
+        // 判断任务数量是否大于已有任务数量
+        if ($data['task_num'] > $count) throw new AdminException('任务数量不能大于已有任务数量');
+        // 更新分销等级的任务数量
+        $this->dao->update($id, ['task_num' => $data['task_num']]);
+        // 返回true表示设置成功
+        return true;
+    }
+
+    /**
+     * 获取分销等级数组
+     * @return array
+     * @author wuhaotian
+     * @email 442384644@qq.com
+     * @date 2025/6/16
+     */
+    public function getAgentLevelArr()
+    {
+        return $this->dao->getColumn(['status'=>1,'is_del'=>0], 'name', 'grade');
     }
 }

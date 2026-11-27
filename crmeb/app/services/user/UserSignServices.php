@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -17,6 +17,7 @@ use app\dao\user\UserSignDao;
 use app\services\system\SystemSignRewardServices;
 use app\services\user\member\MemberCardServices;
 use crmeb\exceptions\ApiException;
+use crmeb\services\CacheService;
 use think\facade\Log;
 
 /**
@@ -88,7 +89,7 @@ class UserSignServices extends BaseServices
         $data['balance'] = $integral_balance + $number;
         $data['add_time'] = time();
         if (!$this->dao->save($data)) {
-            throw new ApiException(410290);
+            throw new ApiException('添加签到数据失败');
         }
         /** @var UserBillServices $userBill */
         $userBill = app()->make(UserBillServices::class);
@@ -104,7 +105,7 @@ class UserSignServices extends BaseServices
             $data['pm'] = 1;
             $data['status'] = 1;
             if (!$userBill->save($data)) {
-                throw new ApiException(410291);
+                throw new ApiException('赠送经验失败');
             }
             //检测会员等级
             try {
@@ -155,14 +156,14 @@ class UserSignServices extends BaseServices
         //检测用户是否存在
         $user = $userServices->getUserInfo($uid);
         if (!$user) {
-            throw new ApiException(410032);
+            throw new ApiException('用户不存在');
         }
 
         $userServices->offMemberLevel($uid);
 
         //检测今天是否已经签到
         if ($this->getIsSign($uid, 'today')) {
-            throw new ApiException(410293);
+            throw new ApiException('已经签到');
         }
         $title = '签到奖励';
         //检测昨天是否签到，如果没有签到，连续签到清0
@@ -217,7 +218,7 @@ class UserSignServices extends BaseServices
             $user->integral = (int)$user->integral + (int)$sign_point;
             if ($sign_exp) $user->exp = bcadd((string)$user->exp, (string)$sign_exp, 2);
             if (!$user->save()) {
-                throw new ApiException(410287);
+                throw new ApiException('修改用户信息失败');
             }
         });
 
@@ -252,7 +253,7 @@ class UserSignServices extends BaseServices
         $userServices = app()->make(UserServices::class);
         $user = $userServices->getUserInfo($uid);
         if (!$user) {
-            throw new ApiException(100026);
+            throw new ApiException('数据不存在');
         }
         //是否统计签到
         if ($sign || $all) {
@@ -324,11 +325,12 @@ class UserSignServices extends BaseServices
      * @email: 442384644@qq.com
      * @date: 2023/8/8
      */
-    public function signConfig($uid)
+    public function signConfig($uid, $signMode = 0)
     {
-        //获取周签到还是月签到
-        $signMode = (int)sys_config('sign_mode', 1);
-
+        if (!$signMode) {
+            //获取周签到还是月签到
+            $signMode = (int)sys_config('sign_mode', 1);
+        }
         //获取签到列表
         $startDate = $signMode == 1 ? strtotime('this week Monday') : strtotime('first day of this month midnight');
         $endDate = $signMode == 1 ? strtotime('this week Sunday') : strtotime('last day of this month midnight');
@@ -415,7 +417,10 @@ class UserSignServices extends BaseServices
         //签到功能是否关闭
         $signStatus = (int)sys_config('sign_status', 0);
 
-        return compact('signList', 'continuousSignDays', 'cumulativeSignDays', 'nextContinuousDays', 'nextCumulativeDays', 'signMode', 'checkSign', 'signRemindStatus', 'signRemindSwitch', 'signStatus');
+        //签到功能是否关闭
+        $signGivePoint = (int)sys_config('sign_give_point', 0);
+
+        return compact('signList', 'continuousSignDays', 'cumulativeSignDays', 'nextContinuousDays', 'nextCumulativeDays', 'signMode', 'checkSign', 'signRemindStatus', 'signRemindSwitch', 'signStatus', 'signGivePoint');
     }
 
     /**
@@ -430,6 +435,34 @@ class UserSignServices extends BaseServices
     public function setSignRemind($uid, $status)
     {
         app()->make(UserServices::class)->update($uid, ['sign_remind' => $status]);
+        return true;
+    }
+
+    /**
+     * 签到提醒
+     * @return bool
+     * @author wuhaotian
+     * @email 442384644@qq.com
+     * @date 2023/9/30
+     */
+    public function sendSignRemind()
+    {
+        //今天已经发送过，不执行发送提醒逻辑
+        if (CacheService::get('sign_remind_expire')) return true;
+        //当前时间小于每天执行提醒发送的时间，不执行发送提醒逻辑
+        if (time() < strtotime('today ' . sys_config('sign_remind_time'))) return true;
+        //获取需要签到提醒的用户
+        $list = app()->make(UserServices::class)->getColumn(['sign_remind' => 1], 'phone', 'uid');
+        if ($list) {
+            //获取今天已经签到的用户
+            $signList = $this->dao->getColumn([['add_time', 'between', [strtotime('today'), strtotime('today 23:59:59')]]], 'uid');
+            $noSignList = array_diff_key($list, array_flip($signList));
+            foreach ($noSignList as $uid => $phone) {
+                event('NoticeListener', [['uid' => $uid, 'phone' => $phone], 'sign_remind']);
+            }
+        }
+        //已经发送提醒，写入缓存，禁止当天多次执行
+        CacheService::set('sign_remind_expire', 1, strtotime('tomorrow') - time());
         return true;
     }
 }

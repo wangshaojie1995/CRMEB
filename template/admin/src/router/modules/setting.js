@@ -388,6 +388,15 @@ export default {
       component: () => import('@/pages/setting/themeStyle/index'),
     },
     {
+      path: 'theme/micro_page',
+      name: `${pre}microPage`,
+      meta: {
+        auth: ['setting-theme-micro_page'],
+        title: '微页面',
+      },
+      component: () => import('@/pages/setting/theme/micro_page/index'),
+    },
+    {
       path: 'pages',
       name: `${pre}page`,
       header: 'setting',
@@ -412,6 +421,15 @@ export default {
         title: '个人中心',
       },
       component: () => import('@/pages/setting/devise/list'),
+    },
+    {
+      path: 'pages/link',
+      name: `${pre}link`,
+      meta: {
+        auth: ['admin-setting-pages-link'],
+        title: '链接管理',
+      },
+      component: () => import('@/pages/setting/link'),
     },
     {
       path: 'pages/cate_page/:type',
@@ -756,6 +774,52 @@ export default {
         title: '签到配置',
       },
       component: () => import('@/pages/setting/setSystem/index'),
+    },
+    {
+      path: 'ticket',
+      name: `${pre}document`,
+      meta: {
+        ...meta,
+        auth: ['admin-setting-ticket'],
+        title: '打印机设置',
+      },
+      component: () => import('@/pages/setting/ticket'),
+    },
+    {
+      path: 'ticket/content',
+      name: `${pre}content`,
+      meta: {
+        ...meta,
+        auth: ['admin-setting-ticket-content'],
+        title: '小票配置',
+        activeMenu: routePre + '/setting/ticket',
+      },
+      component: () => import('@/pages/setting/ticket/content'),
+    },
+    {
+      path: 'my_theme',
+      name: `${pre}myTheme`,
+      meta: {
+        title: '我的主题',
+      },
+      component: () => import('@/pages/setting/theme/myTheme/index'),
+    },
+    {
+      path: 'mall_theme',
+      name: `${pre}mallTheme`,
+      meta: {
+        title: '商城主题',
+      },
+      component: () => import('@/pages/setting/theme/mallTheme/index'),
+    },
+    {
+      path: 'edit_theme',
+      name: `${pre}editTheme`,
+      meta: {
+        title: '主题风格',
+        fullScreen: true, //是否全屏显示main区域
+      },
+      component: () => import('@/pages/setting/theme/editTheme/index'),
     },
   ],
 };

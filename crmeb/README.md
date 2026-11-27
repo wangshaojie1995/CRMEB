@@ -1,15 +1,33 @@
-CRMEB v5 后端程序目录
+CRMEB-KY v6.0.0 后端程序目录
 ===============
 
-> 运行环境要求PHP7.1-7.4。
+## docker一键运行
+
+### 快速启动
+
+```bash
+# 拉取镜像
+docker pull ccr.ccs.tencentyun.com/crmebky_php/crmebky:latest
+
+# 运行容器
+docker run -d --name crmeb \
+  -p 8080:80 \
+  -p 3306:3306 \
+  -p 6379:6379 \
+  ccr.ccs.tencentyun.com/crmebky_php/crmebky:latest
+```
+
+### 访问服务
+- **网站**: http://localhost:8080 
+- **后台**: http://localhost:8080/admin （账号: admin，密码: crmeb.com）
+- **MySQL**: localhost:3306（账号: root，密码: 123456）
+- **Redis**: localhost:6379
+> 详细说明请到 [帮助文档](https://gitee.com/ZhongBangKeJi/CRMEB/blob/master/help/docker/README.md) 查看。
+
+
+> 运行环境要求PHP7.1-7.4。 
 
 ## 安装
-## 宝塔Docker一键安装
-1.安装宝塔面板，前往 [宝塔面板](https://www.bt.cn/new/download.html?r=dk_crmeb) 官网，选择正式版的脚本下载安装
-
-2.安装后登录宝塔面板，在菜单栏中点击 Docker ，首次进入会提示安装 Docker 服务，点击立即安装，按提示完成安装
-
-3.安装完成后在应用商店中找到crmeb  ，点击安装，配置域名等基本信息即可完成安装
 
 ## 一键安装
 上传你的代码，站点入口目录设置/public
@@ -74,11 +92,6 @@ QUEUE_NAME = xxxx #队列前缀
 http://域名/admin
 默认账号：admin 密码：crmeb.com
 
-
-## 消息队列
-```sh
-php think queue:listen --queue
-```
 
 ## 定时任务
 在自动收货,库存预警等功能使用到
@@ -283,7 +296,7 @@ ThinkPHP6.0遵循PSR-2命名规范和PSR-4自动加载规范，并且注意如�
 
 本项目包含的第三方源码和二进制文件之版权信息另行标注。
 
-版权所有Copyright © 2017-2023 by CRMEB (http://www.crmeb.com)
+版权所有Copyright © 2017-2026 by CRMEB (http://www.crmeb.com)
 
 All rights reserved。
 

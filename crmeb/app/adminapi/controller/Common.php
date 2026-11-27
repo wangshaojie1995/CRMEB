@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -83,7 +83,7 @@ class Common extends AuthController
                         ]);
                     }
                 } catch (\Throwable $e) {
-                    return app('json')->fail(400330);
+                    return app('json')->fail('授权成功，写入数据库失败，请检查数据库链接配置');
                 }
                 return app('json')->success(['status' => 1, 'copyright' => $res['data']['copyright'], 'authCode' => $authCode, 'day' => 0, 'force_reminder' => $upgradeStatus['force_reminder'] ?? 0]);
             default:
@@ -106,23 +106,23 @@ class Common extends AuthController
             ['captcha', ''],
         ]);
         if (!$data['company_name']) {
-            return app('json')->fail(400331);
+            return app('json')->fail('请填写公司名称');
         }
         if (!$data['domain_name']) {
-            return app('json')->fail(400332);
+            return app('json')->fail('请填写授权域名');
         }
 
         if (!$data['phone']) {
-            return app('json')->fail(400333);
+            return app('json')->fail('请填写手机号码');
         }
         if (!$data['order_id']) {
-            return app('json')->fail(400334);
+            return app('json')->fail('请填写订单id');
         }
         if (!$data['captcha']) {
-            return app('json')->fail(400137);
+            return app('json')->fail('请填写验证码');
         }
         $services->authApply($data);
-        return app('json')->success(400335);
+        return app('json')->success('申请授权成功');
 
     }
 
@@ -138,14 +138,25 @@ class Common extends AuthController
         return app('json')->success(compact('info'));
     }
 
-    //增长率
+    /**
+    * 计算增长率
+    * 特殊情况：
+    * 1. 当前值和上期值均为0时，返回0；
+    * 2. 上期值为0时，返回当前值；
+    * 3. 当前值为0时，返回上期值的负数。
+    *
+    * @param float $nowValue 当前值
+    * @param float $lastValue 上期值
+    * @return float 增长率
+    */
     public function growth($nowValue, $lastValue)
     {
-        if ($lastValue == 0 && $nowValue == 0) return 0;
-        if ($lastValue == 0) return round($nowValue, 2);
-        if ($nowValue == 0) return -round($lastValue, 2);
-        return bcmul(bcdiv((bcsub($nowValue, $lastValue, 2)), $lastValue, 2), 100, 2);
+       if ($lastValue == 0 && $nowValue == 0) return 0;
+       if ($lastValue == 0) return round($nowValue, 2);
+       if ($nowValue == 0) return -round($lastValue, 2);
+       return bcmul(bcdiv((bcsub($nowValue, $lastValue, 2)), $lastValue, 2), 100, 2);
     }
+
 
     /**
      * 订单图表
@@ -377,7 +388,7 @@ class Common extends AuthController
             ]);
         }
         CacheService::clear();
-        return app('json')->success(100000);
+        return app('json')->success('保存成功');
     }
 
     /**
@@ -393,6 +404,10 @@ class Common extends AuthController
         [$keyword] = $this->request->postMore([
             ['keyword', ''],
         ], true);
+        if (empty($keyword)) {
+           return app('json')->fail('请输入关键字', '关键字不能为空');
+        }
+
         // 获取系统菜单服务实例
         $menusServices = app()->make(SystemMenusServices::class);
         // 查询菜单列表
@@ -403,12 +418,15 @@ class Common extends AuthController
         $configTabServices = app()->make(SystemConfigTabServices::class);
         // 查询配置项列表
         $configList = $configServices->selectList([['info', 'like', '%' . $keyword . '%']], 'info as title,config_tab_id')->toArray();
+        // 查询配置项标签列表
         $configTabList = $configTabServices->selectList([['title', 'like', '%' . $keyword . '%']], 'title,id as config_tab_id')->toArray();
+        // 合并配置项列表和配置项标签列表
         $configAllList = array_merge($configList, $configTabList);
         // 获取配置项对应的标签ID
         $tabIds = array_unique(array_column($configAllList, 'config_tab_id'));
         // 查询配置项标签列表
         $tabList = $configTabServices->getColumn([['id', 'in', $tabIds]], 'menus_id', 'id');
+
         // 将配置项标签列表中的菜单ID与配置项列表中的菜单ID对应起来
         foreach ($configAllList as &$item1) {
             $item1['menus_id'] = $tabList[$item1['config_tab_id']] ?? 0;
@@ -417,6 +435,7 @@ class Common extends AuthController
         $configTabIds = array_values($tabList);
         // 查询配置项标签对应的菜单列表
         $configMenusList = $menusServices->getColumn([['id', 'in', $configTabIds]], 'menu_name as title,menu_path as path,id', 'id');
+
         // 将配置项列表中的菜单ID与配置项标签对应的菜单ID对应起来
         foreach ($configAllList as $item2) {
             if ($item2['menus_id'] == 0) {
@@ -429,8 +448,13 @@ class Common extends AuthController
             ];
         }
         // 将菜单列表中的路径前缀添加到每个菜单项的 path 属性上
+        $adminPrefix = '/' . Config::get('app.admin_prefix', 'admin');
         foreach ($menusList as &$item) {
-            $item['path'] = '/' . Config::get('app.admin_prefix', 'admin') . $item['path'];
+           if (strpos($item['path'], '/') !== 0) {
+               $item['path'] = $adminPrefix . '/' . ltrim($item['path'], '/');
+           } else {
+               $item['path'] = $adminPrefix . $item['path'];
+           }
         }
         // 返回 JSON 格式的菜单列表
         return app('json')->success($menusList);

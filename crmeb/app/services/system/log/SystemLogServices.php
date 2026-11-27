@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | CRMEB [ CRMEB赋能开发者，助力企业发展 ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2016~2023 https://www.crmeb.com All rights reserved.
+// | Copyright (c) 2016~2026 https://www.crmeb.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed CRMEB并不是自由软件，未经许可不能去掉CRMEB相关版权
 // +----------------------------------------------------------------------
@@ -16,6 +16,7 @@ use app\dao\system\log\SystemLogDao;
 use app\services\BaseServices;
 use app\services\system\admin\SystemAdminServices;
 use app\services\system\SystemMenusServices;
+use app\services\system\SystemRouteServices;
 
 /**
  * 系统日志
@@ -84,8 +85,12 @@ class SystemLogServices extends BaseServices
             $service = app()->make(SystemAdminServices::class);
             $where['admin_id'] = $service->getAdminIds($level);
         }
+        $routeArr = app()->make(SystemRouteServices::class)->getNameList('adminapi');
         $list = $this->dao->getLogList($where, $page, $limit);
         $count = $this->dao->count($where);
+        foreach($list as &$item){
+            $item['path_name'] = $routeArr[$item['path']] ?? '未知';
+        }
         return compact('list', 'count');
     }
 }
